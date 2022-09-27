@@ -1,0 +1,11 @@
+[package]
+name = "ruffd-types"
+version = "0.0.1"
+edition = "2021"
+
+[dependencies]
+lsp-types = "0.93"
+tokio = { version = "1.20", features = ["full"] }
+serde = "1.0"
+serde_json = "1.0"
+thiserror = "1.0"

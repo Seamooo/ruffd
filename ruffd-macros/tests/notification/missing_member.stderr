@@ -1,0 +1,21 @@
+error[E0609]: no field `bad_struct_member` on type `ServerStateHandles<'_>`
+ --> tests/notification/missing_member.rs:3:30
+  |
+3 | #[notification(open_buffers, bad_struct_member)]
+  |                              ^^^^^^^^^^^^^^^^^ unknown field
+  |
+  = note: available fields are: `project_root`, `open_buffers`, `capabilities`
+
+error[E0609]: no field `bad_struct_member` on type `ServerStateLocks`
+ --> tests/notification/missing_member.rs:3:30
+  |
+3 | #[notification(open_buffers, bad_struct_member)]
+  |                              ^^^^^^^^^^^^^^^^^ unknown field
+  |
+  = note: available fields are: `project_root`, `open_buffers`, `capabilities`
+
+error[E0609]: no field `bad_struct_member` on type `ruffd_types::tokio::sync::MutexGuard<'_, ServerState>`
+ --> tests/notification/missing_member.rs:3:30
+  |
+3 | #[notification(open_buffers, bad_struct_member)]
+  |                              ^^^^^^^^^^^^^^^^^ unknown field
