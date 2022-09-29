@@ -63,6 +63,12 @@ pub enum AggAvlTreeError {
 }
 
 #[derive(Error, Debug)]
+pub enum RopeError {
+    #[error("Index out of bounds")]
+    IndexOutOfBounds,
+}
+
+#[derive(Error, Debug)]
 pub enum DocumentError {
     #[error("Index out of bounds")]
     IndexOutOfBounds,
@@ -72,6 +78,8 @@ pub enum DocumentError {
     ColOutOfBounds,
     #[error(transparent)]
     AggAvlTreeError(#[from] AggAvlTreeError),
+    #[error(transparent)]
+    RopeError(#[from] RopeError),
 }
 
 #[derive(Error, Debug)]

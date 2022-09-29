@@ -1814,6 +1814,7 @@ dependencies = [
  "anyhow",
  "lsp-types",
  "ruff",
+ "rustpython-parser",
  "serde",
  "serde_json",
  "thiserror",
