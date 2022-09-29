@@ -8,6 +8,5 @@ edition = "2021"
 [dependencies]
 ruffd-types = { path="../ruffd-types" }
 ruffd-macros = { path="../ruffd-macros" }
-ruff = { git = "https://github.com/charliermarsh/ruff", tag = "v0.0.46", version = "0.0.46" }
 lazy_static = "1.4"
 regex = "1.6"

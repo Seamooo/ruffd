@@ -57,9 +57,35 @@ impl RpcErrors {
 }
 
 #[derive(Error, Debug)]
+pub enum AggAvlTreeError {
+    #[error("Index out of bounds")]
+    IndexOutOfBounds,
+}
+
+#[derive(Error, Debug)]
+pub enum DocumentError {
+    #[error("Index out of bounds")]
+    IndexOutOfBounds,
+    #[error("Row out of bounds")]
+    RowOutOfBounds,
+    #[error("Column out of bounds")]
+    ColOutOfBounds,
+    #[error(transparent)]
+    AggAvlTreeError(#[from] AggAvlTreeError),
+}
+
+#[derive(Error, Debug)]
 pub enum RuntimeError {
-    #[error("unknown encoding {0}")]
+    #[error("Unknown encoding {0}")]
     UnknownEncoding(String),
+    #[error("DocumentError: {0}")]
+    DocumentError(#[from] DocumentError),
+    #[error("Uri: '{0}' not open")]
+    EditUnopenedDocument(lsp_types::Url),
+    #[error("Unexpected None")]
+    UnexpectedNone,
+    #[error("Internal Error: {0}")]
+    InternalError(#[from] anyhow::Error),
 }
 
 impl From<io::Error> for RpcError {

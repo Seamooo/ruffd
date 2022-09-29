@@ -130,7 +130,12 @@ fn make_inner_fn(func: &ItemFn, members: &[PatIdent]) -> impl ToTokens {
         let mut rv = func.sig.clone();
         rv.ident = Ident::new("inner", Span::call_site());
         let old_inputs = rv.inputs;
-        rv.inputs = parse_quote!(state: ::ruffd_types::ServerStateHandles<'_>, #old_inputs);
+        rv.inputs = parse_quote!(
+            state: ::ruffd_types::ServerStateHandles<'_>,
+            _scheduler_channel: ::ruffd_types::tokio::sync::mpsc::Sender<
+                ::ruffd_types::ScheduledTask
+            >,
+            #old_inputs);
         rv
     };
     let block = func.block.clone();
@@ -145,9 +150,11 @@ fn make_inner_fn(func: &ItemFn, members: &[PatIdent]) -> impl ToTokens {
 
 fn make_params_check(param: PatType, is_notification: bool) -> impl ToTokens {
     let error_return = if is_notification {
-        quote!(Some(::ruffd_types::RpcResponse::from_error(None, err)))
+        quote!(Some(::ruffd_types::RpcResponseMessage::from_error(
+            None, err
+        )))
     } else {
-        quote!(::ruffd_types::RpcResponse::from_error(Some(id), err))
+        quote!(::ruffd_types::RpcResponseMessage::from_error(Some(id), err))
     };
     let param_type = param.ty;
     quote! {
@@ -185,14 +192,6 @@ pub fn notification(args: TokenStream, stream: TokenStream) -> TokenStream {
     let inner_call_params = fn_details.parameter.clone().map(|_| quote!(params));
     let inner_await = fn_details.asyncness.then(|| quote!(.await));
     let fn_identifier = fn_details.fn_identifier;
-    let id_check = quote! {
-        if let Some(x) = id {
-            return Some(::ruffd_types::RpcResponse::from_error(
-                Some(x),
-                ::ruffd_types::RpcErrors::INVALID_REQUEST
-            ));
-        }
-    };
     quote! {
         #[allow(dead_code)]
         mod #fn_identifier {
@@ -201,24 +200,25 @@ pub fn notification(args: TokenStream, stream: TokenStream) -> TokenStream {
             #create_locks_fn
             fn exec(
                 state: ::ruffd_types::ServerStateHandles<'_>,
-                id: Option<::ruffd_types::lsp_types::NumberOrString>,
+                scheduler_channel: ::ruffd_types::tokio::sync::mpsc::Sender<
+                    ::ruffd_types::ScheduledTask
+                >,
                 #params_ident: Option<::ruffd_types::serde_json::Value>,
             ) -> ::std::pin::Pin<
                 Box<
                     dyn Send + ::std::future::Future<
-                        Output = Option<::ruffd_types::RpcResponse>
+                        Output = Option<::ruffd_types::RpcResponseMessage>
                     > + '_
                 >
             >
             {
                 Box::pin(async move {
-                    #id_check
                     #params_check
-                    let rv = inner(state, #inner_call_params)#inner_await;
+                    let rv = inner(state, scheduler_channel, #inner_call_params)#inner_await;
                     match rv {
                         Ok(_) => None,
                         Err(e) => Some(
-                            ::ruffd_types::RpcResponse::from_error(
+                            ::ruffd_types::RpcResponseMessage::from_error(
                                 None,
                                 ::ruffd_types::RpcError::from(e)
                             )
