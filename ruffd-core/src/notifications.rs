@@ -41,17 +41,6 @@ fn document_did_change(
             buffer.delete_range(start, end)?;
             buffer.insert_text(change.text.as_str(), start)?;
         }
-        let uri = doc_info.text_document.uri.clone();
-        task::spawn(async move {
-            let diagnostic_op = run_diagnostic_op(uri);
-            _scheduler_channel
-                .send(ScheduledTask::Server(ServerInitiated::Notification(
-                    diagnostic_op,
-                )))
-                .await
-                .ok()
-                .unwrap();
-        });
         Ok(())
     } else {
         Err(RuntimeError::EditUnopenedDocument(
@@ -60,12 +49,29 @@ fn document_did_change(
     }
 }
 
+#[notification]
+fn document_will_save(doc_info: lsp_types::WillSaveTextDocumentParams) -> Result<(), RuntimeError> {
+    let uri = doc_info.text_document.uri;
+    task::spawn(async move {
+        let diagnostic_op = run_diagnostic_op(uri);
+        _scheduler_channel
+            .send(ScheduledTask::Server(ServerInitiated::Notification(
+                diagnostic_op,
+            )))
+            .await
+            .ok()
+            .unwrap();
+    });
+    Ok(())
+}
+
 lazy_static! {
     pub(crate) static ref NOTIFICATION_REGISTRY: HashMap<&'static str, Notification> = {
         let pairs = vec![
             ("initialized", initialized_notif),
             ("textDocument/didOpen", document_did_open),
             ("textDocument/didChange", document_did_change),
+            ("textDocument/willSave", document_will_save),
         ];
         pairs
             .into_iter()

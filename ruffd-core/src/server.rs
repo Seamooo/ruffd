@@ -342,7 +342,6 @@ where
 {
     loop {
         let resp = response_channel.recv().await.unwrap();
-        dbg!(&resp);
         let msg_str = serde_json::to_string(&resp).unwrap();
         write_msg(writer, msg_str.as_bytes()).await.unwrap();
     }

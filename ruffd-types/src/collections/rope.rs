@@ -1,7 +1,7 @@
 use crate::error::RopeError;
 use std::collections::VecDeque;
 use std::fmt;
-use std::ops::RangeBounds;
+use std::ops::{Bound, RangeBounds};
 
 // NOTE There's a lot of room for better memory management in this collection
 // implementation, however, everything exists without unsafe blocks for now,
@@ -58,7 +58,7 @@ impl<T> From<SplayRet<T>> for RopeNode<T> {
     fn from(splay_ret: SplayRet<T>) -> Self {
         match splay_ret {
             SplayRet::L1(x) => Self::Parent(x),
-            SplayRet::L2(L2Val { parent, target }) => Self::zig_splay(parent, target),
+            SplayRet::L2(L2Val { parent, target }) => Self::zig_splay(*parent, target),
             SplayRet::Leaf(x) => Self::Leaf(x),
         }
     }
@@ -183,7 +183,7 @@ impl<T> RopeNode<T> {
     }
 
     fn splay(
-        grandparent: Box<RopeParent<T>>,
+        grandparent: RopeParent<T>,
         parent: Lr<Box<RopeParent<T>>>,
         target: Lr<Box<RopeParent<T>>>,
     ) -> Self {
@@ -235,7 +235,7 @@ impl<T> RopeNode<T> {
         }
     }
 
-    fn zig_splay(parent: Box<RopeParent<T>>, target: Lr<Box<RopeParent<T>>>) -> Self {
+    fn zig_splay(parent: RopeParent<T>, target: Lr<Box<RopeParent<T>>>) -> Self {
         match target {
             Lr::Left(mut target_node) => {
                 let new_parent =
@@ -275,7 +275,7 @@ impl<T> RopeNode<T> {
                 match ret_val {
                     SplayRet::L1(x) => SplayRet::L2(L2Val::new(parent_node, Lr::new(x, is_left))),
                     SplayRet::L2(L2Val { parent, target }) => {
-                        Self::splay(parent_node, Lr::new(parent, is_left), target).into()
+                        Self::splay(*parent_node, Lr::new(parent, is_left), target).into()
                     }
                     SplayRet::Leaf(x) => {
                         let ret_node = if is_left {
@@ -294,22 +294,22 @@ impl<T> RopeNode<T> {
         match self {
             Self::Leaf(mut val) => {
                 val.drain(range).for_each(drop);
-                if val.len() == 0 {
+                if val.is_empty() {
                     None
                 } else {
-                    Some(Self::new(val).into())
+                    Some(Self::new(val))
                 }
             }
             Self::Parent(mut node) => {
                 let start_idx = match range.start_bound() {
-                    std::ops::Bound::Included(x) => *x,
-                    std::ops::Bound::Excluded(x) => x + 1usize,
-                    std::ops::Bound::Unbounded => 0usize,
+                    Bound::Included(x) => *x,
+                    Bound::Excluded(x) => x + 1usize,
+                    Bound::Unbounded => 0usize,
                 };
                 let end_idx = match range.end_bound() {
-                    std::ops::Bound::Included(x) => *x + 1usize,
-                    std::ops::Bound::Excluded(x) => *x,
-                    std::ops::Bound::Unbounded => node.elem_count,
+                    Bound::Included(x) => *x + 1usize,
+                    Bound::Excluded(x) => *x,
+                    Bound::Unbounded => node.elem_count,
                 };
                 let mid_idx = node.get_left_elem_count();
                 let left = node.left.take().unwrap();
@@ -326,6 +326,7 @@ impl<T> RopeNode<T> {
                 } else {
                     Some(right)
                 };
+                #[allow(clippy::unnecessary_unwrap)]
                 if lhs.is_none() {
                     rhs
                 } else if rhs.is_none() {
@@ -341,7 +342,7 @@ impl<T> RopeNode<T> {
 
 pub struct RopeIterator<'a, T> {
     /// Call stack for dfs
-    node_stack: VecDeque<&'a Box<RopeParent<T>>>,
+    node_stack: VecDeque<&'a RopeParent<T>>,
 
     /// Number of iteration calls expected if Some else infinite
     iter_len: Option<usize>,
@@ -356,16 +357,16 @@ pub struct RopeIterator<'a, T> {
 impl<'a, T> RopeIterator<'a, T> {
     fn new<R: RangeBounds<usize>>(root: &'a RopeNode<T>, range: R) -> Self {
         let mut curr_node = root;
-        let mut node_stack = VecDeque::new();
+        let mut node_stack = VecDeque::<&'a RopeParent<T>>::new();
         let start_idx = match range.start_bound() {
-            std::ops::Bound::Included(x) => *x,
-            std::ops::Bound::Excluded(x) => x + 1usize,
-            std::ops::Bound::Unbounded => 0,
+            Bound::Included(x) => *x,
+            Bound::Excluded(x) => x + 1usize,
+            Bound::Unbounded => 0,
         };
         let iter_len = match range.end_bound() {
-            std::ops::Bound::Included(x) => Some(x - start_idx + 1),
-            std::ops::Bound::Excluded(x) => Some(x - start_idx),
-            std::ops::Bound::Unbounded => None,
+            Bound::Included(x) => Some(x - start_idx + 1),
+            Bound::Excluded(x) => Some(x - start_idx),
+            Bound::Unbounded => None,
         };
         let mut tp_agg = 0usize;
         while let RopeNode::Parent(node) = curr_node {
@@ -392,7 +393,7 @@ impl<'a, T> RopeIterator<'a, T> {
 
     fn empty() -> Self {
         Self {
-            node_stack: std::collections::VecDeque::<&'a Box<RopeParent<T>>>::new(),
+            node_stack: VecDeque::<&'a RopeParent<T>>::new(),
             iter_len: None,
             curr_idx: 0,
             item_iter: Box::new(std::iter::empty()),
@@ -462,6 +463,10 @@ impl<T> Rope<T> {
         }
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.root.is_none()
+    }
+
     /// Inserts collection into the datastructure at the given index
     pub fn insert(&mut self, string: Vec<T>, idx: usize) -> Result<(), RopeError> {
         // use idx == self.len() for insert_back
@@ -478,7 +483,7 @@ impl<T> Rope<T> {
     pub fn delete<R: RangeBounds<usize>>(&mut self, range: R) {
         self.root = match self.root.take() {
             None => None,
-            Some(x) => x.delete(range).map(|x| x.into()),
+            Some(x) => x.delete(range),
         };
     }
 

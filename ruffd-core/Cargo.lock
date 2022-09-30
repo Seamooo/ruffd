@@ -1813,7 +1813,6 @@ version = "0.0.1"
 dependencies = [
  "lazy_static",
  "regex",
- "ruff",
  "ruffd-macros",
  "ruffd-types",
 ]
@@ -1832,7 +1831,10 @@ dependencies = [
 name = "ruffd-types"
 version = "0.0.1"
 dependencies = [
+ "anyhow",
  "lsp-types",
+ "ruff",
+ "rustpython-parser",
  "serde",
  "serde_json",
  "thiserror",

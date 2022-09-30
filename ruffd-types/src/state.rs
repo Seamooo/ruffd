@@ -158,13 +158,12 @@ impl ServerState {
         // - code action provider
         // - diagnostic provider
         // - scheduler should be used for requests and work
-        //   - change handle_loop channel to accept an enum for work and requests
         let capabilities_val = lsp_types::ServerCapabilities {
             text_document_sync: Some(lsp_types::TextDocumentSyncCapability::Options(
                 lsp_types::TextDocumentSyncOptions {
                     open_close: Some(true),
                     change: Some(lsp_types::TextDocumentSyncKind::INCREMENTAL),
-                    will_save: None,
+                    will_save: Some(true),
                     will_save_wait_until: None,
                     save: None,
                 },

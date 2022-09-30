@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::RpcError;
 
-const JSON_RPC_VERSION: &'static str = "2.0";
+const JSON_RPC_VERSION: &str = "2.0";
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct RpcRequest {
