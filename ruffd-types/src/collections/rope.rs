@@ -1,5 +1,6 @@
 use crate::error::RopeError;
 use std::collections::VecDeque;
+use std::fmt;
 use std::ops::RangeBounds;
 
 // NOTE There's a lot of room for better memory management in this collection
@@ -11,6 +12,7 @@ use std::ops::RangeBounds;
 // than a vector
 const LEAF_SIZE: usize = 64;
 
+#[derive(Debug)]
 enum Lr<T> {
     Left(T),
     Right(T),
@@ -67,12 +69,31 @@ enum RopeNode<T> {
     Parent(Box<RopeParent<T>>),
 }
 
+impl<T> fmt::Debug for RopeNode<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Leaf(x) => f.debug_tuple("Leaf").field(&x.len()).finish(),
+            Self::Parent(x) => f.debug_tuple("Parent").field(&x).finish(),
+        }
+    }
+}
+
 struct RopeParent<T> {
     // internal values are only option to enable swap with
     // no default
     left: Option<RopeNode<T>>,
     right: Option<RopeNode<T>>,
     elem_count: usize,
+}
+
+impl<T> fmt::Debug for RopeParent<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("RopeParent")
+            .field("left", &self.left)
+            .field("right", &self.right)
+            .field("elem_count", &self.elem_count)
+            .finish()
+    }
 }
 
 impl<T> RopeParent<T> {
@@ -218,12 +239,12 @@ impl<T> RopeNode<T> {
         match target {
             Lr::Left(mut target_node) => {
                 let new_parent =
-                    Self::from_nodes(target_node.right.take().unwrap(), parent.left.unwrap());
+                    Self::from_nodes(target_node.right.take().unwrap(), parent.right.unwrap());
                 Self::from_nodes(target_node.left.unwrap(), new_parent)
             }
             Lr::Right(mut target_node) => {
                 let new_parent =
-                    Self::from_nodes(parent.right.unwrap(), target_node.left.take().unwrap());
+                    Self::from_nodes(parent.left.unwrap(), target_node.left.take().unwrap());
                 Self::from_nodes(new_parent, target_node.right.unwrap())
             }
         }
@@ -233,10 +254,6 @@ impl<T> RopeNode<T> {
     ///
     /// If the provided index is greater than the maximum,
     /// the value will be inserted at the back
-    ///
-    /// # Panics:
-    ///
-    /// Panics if there is a stale reference to the children of `self`
     pub fn insert(self, mut val: Vec<T>, idx: usize) -> SplayRet<T> {
         match self {
             Self::Leaf(mut x) => {
@@ -305,7 +322,7 @@ impl<T> RopeNode<T> {
                 let right = node.right.take().unwrap();
                 let rhs = if end_idx > mid_idx {
                     let start_bound = start_idx.max(mid_idx) - mid_idx;
-                    right.delete(start_bound..end_idx)
+                    right.delete(start_bound..(end_idx - mid_idx))
                 } else {
                     Some(right)
                 };
@@ -417,6 +434,7 @@ impl<'a, T> Iterator for RopeIterator<'a, T> {
 /// Novelty of this implementation is it performs a splay op after
 /// each mutation op, such that traversal to similar indices
 /// is dynamically optimal (unproven but Levy is nearly there!)
+#[derive(Debug)]
 pub struct Rope<T> {
     root: Option<RopeNode<T>>,
 }
