@@ -1,3 +1,4 @@
+use ruffd_types::ruff::check;
 use ruffd_types::ruff::message::Message;
 use ruffd_types::tokio::sync::mpsc::Sender;
 use ruffd_types::tokio::sync::Mutex;
@@ -15,13 +16,16 @@ fn message_into_diagnostic(msg: Message) -> lsp_types::Diagnostic {
     // As ruff currently doesn't support the span of the error,
     // only have it span a single character
     let range = {
+        // diagnostic is zero indexed, but message is 1-indexed
+        let row = msg.location.row() as u32 - 1;
+        let col = msg.location.column() as u32 - 1;
         let start = lsp_types::Position {
-            line: msg.location.row() as u32,
-            character: msg.location.column() as u32,
+            line: row,
+            character: col,
         };
         let end = lsp_types::Position {
-            line: msg.location.row() as u32,
-            character: msg.location.column() as u32 + 1,
+            line: row,
+            character: col + 1,
         };
         lsp_types::Range { start, end }
     };
@@ -36,7 +40,7 @@ fn message_into_diagnostic(msg: Message) -> lsp_types::Diagnostic {
         code,
         source,
         message,
-        severity: None,
+        severity: Some(lsp_types::DiagnosticSeverity::WARNING),
         code_description: None,
         tags: None,
         related_information: None,
@@ -59,10 +63,12 @@ pub fn run_diagnostic_op(document_uri: lsp_types::Url) -> ServerNotification {
                 };
                 let messages: Vec<Message> = {
                     if let Some(buffer) = open_buffers.get(&document_uri) {
-                        let _doc = buffer.iter().collect::<String>();
-                        // TODO once ruff lint contents interface is available,
-                        // implement here
-                        vec![]
+                        let doc = buffer.iter().collect::<String>();
+                        if let Ok(path) = document_uri.to_file_path() {
+                            check(&path, &doc).unwrap_or(vec![])
+                        } else {
+                            vec![]
+                        }
                     } else {
                         vec![]
                     }

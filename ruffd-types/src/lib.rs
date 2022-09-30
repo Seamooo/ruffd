@@ -13,7 +13,6 @@ pub use interface::{
 };
 pub use lsp_types;
 pub use ruff;
-pub use rustpython_parser;
 pub use serde;
 pub use serde_json;
 pub use state::{

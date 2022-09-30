@@ -94,6 +94,8 @@ pub enum RuntimeError {
     UnexpectedNone,
     #[error("Internal Error: {0}")]
     InternalError(#[from] anyhow::Error),
+    #[error("Cannot convert uri to path: {0}")]
+    UriToPathError(lsp_types::Url),
 }
 
 impl From<io::Error> for RpcError {

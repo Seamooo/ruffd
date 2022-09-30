@@ -3,7 +3,6 @@ use crate::error::{DocumentError, RuntimeError};
 use ruff::settings::Settings;
 use std::collections::HashMap;
 use std::ops::RangeBounds;
-use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
@@ -157,7 +156,6 @@ impl ServerState {
         // - hover provider
         // - code action provider
         // - diagnostic provider
-        // - scheduler should be used for requests and work
         let capabilities_val = lsp_types::ServerCapabilities {
             text_document_sync: Some(lsp_types::TextDocumentSyncCapability::Options(
                 lsp_types::TextDocumentSyncOptions {
@@ -170,9 +168,13 @@ impl ServerState {
             )),
             ..Default::default()
         };
-        let project_root_path = project_root_val
-            .clone()
-            .map(|url| PathBuf::from(url.to_string()));
+        let project_root_path = match &project_root_val {
+            Some(val) => Some(
+                val.to_file_path()
+                    .map_err(|_| RuntimeError::UriToPathError(val.clone()))?,
+            ),
+            None => None,
+        };
         let project_root = Arc::new(RwLock::new(project_root_val));
         let capabilities = Arc::new(RwLock::new(capabilities_val));
         let open_buffers = Arc::new(RwLock::new(HashMap::new()));
