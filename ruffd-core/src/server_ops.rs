@@ -57,10 +57,6 @@ pub fn run_diagnostic_op(document_uri: lsp_types::Url) -> ServerNotification {
                     RwGuarded::Read(x) => x,
                     _ => unreachable!(),
                 };
-                let _settings = match state_handles.settings.unwrap() {
-                    RwGuarded::Read(x) => x,
-                    _ => unreachable!(),
-                };
                 let messages: Vec<Message> = {
                     if let Some(buffer) = open_buffers.get(&document_uri) {
                         let doc = buffer.iter().collect::<String>();
@@ -95,10 +91,8 @@ pub fn run_diagnostic_op(document_uri: lsp_types::Url) -> ServerNotification {
     let create_locks: CreateLocksFn = Box::new(|state: Arc<Mutex<ServerState>>| {
         Box::pin(async move {
             let handle = state.lock().await;
-            let settings = Some(RwReq::Read(handle.settings.clone()));
             let open_buffers = Some(RwReq::Read(handle.open_buffers.clone()));
             ServerStateLocks {
-                settings,
                 open_buffers,
                 ..Default::default()
             }
