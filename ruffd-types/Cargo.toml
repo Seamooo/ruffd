@@ -20,3 +20,7 @@ hex-literal = "0.3"
 [[bench]]
 name = "rope"
 harness = false
+
+[[bench]]
+name = "agg_avl_tree"
+harness = false
