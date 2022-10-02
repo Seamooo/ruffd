@@ -70,12 +70,15 @@ impl Server {
         unimplemented!();
     }
 
+    /// Handles arbitrary client messages
+    ///
+    /// Returns false if server should shut down
     async fn handle_client_msg(
         &mut self,
         rpc_message: RpcMessage,
         scheduler_channel: Sender<ScheduledTask>,
         response_channel: Sender<RpcMessage>,
-    ) {
+    ) -> bool {
         let curr_state = self.state.lock().await.clone();
         // below code path should never be reached
         if curr_state.is_none() {
@@ -92,7 +95,7 @@ impl Server {
             task::spawn(async move {
                 response_channel.send(resp.into()).await.unwrap();
             });
-            return;
+            return true;
         }
         let curr_state = curr_state.unwrap();
         match rpc_message {
@@ -132,6 +135,7 @@ impl Server {
             // TODO implement handler for server triggered request responses
             _ => unimplemented!(),
         }
+        true
     }
 
     async fn handle_server_notification(

@@ -70,6 +70,17 @@ impl DocumentBuffer {
     ) -> Result<(), DocumentError> {
         let (row, col) = row_col;
         let char_vec: Vec<char> = text.chars().collect();
+        if self.row_tree.is_empty() {
+            if row != 0 || col != 0 {
+                return Err(DocumentError::IndexOutOfBounds);
+            }
+            let row_counts = get_line_lengths(&char_vec);
+            row_counts
+                .into_iter()
+                .for_each(|val| self.row_tree.insert_back(val));
+            self.text.insert(char_vec, 0).unwrap();
+            return Ok(());
+        }
         let curr_row_size = self
             .row_tree
             .get(row)
@@ -105,6 +116,12 @@ impl DocumentBuffer {
     ) -> Result<(), DocumentError> {
         let (start_row, start_col) = start_row_col;
         let (end_row, end_col) = end_row_col;
+        if self.row_tree.is_empty() {
+            if start_row + start_col + end_row + end_col == 0 {
+                return Ok(());
+            }
+            return Err(DocumentError::IndexOutOfBounds);
+        }
         let start_row_size = self
             .row_tree
             .get(start_row)
@@ -358,6 +375,30 @@ if __name__ == '__main__':
     main()
 "#;
         assert_eq!(doc.iter().collect::<String>(), expected);
+    }
+
+    #[test]
+    fn test_delete_empty() {
+        let mut doc = DocumentBuffer::new();
+        doc.delete_range((0, 0), (0, 0)).unwrap();
+    }
+
+    #[test]
+    fn test_insert_empty() {
+        let mut doc = DocumentBuffer::new();
+        let text = "Some text";
+        doc.insert_text(text, (0, 0)).unwrap();
+        assert_eq!(doc.iter().collect::<String>(), text);
+    }
+
+    #[test]
+    fn test_delete_all_and_insert() {
+        let mut doc = DocumentBuffer::new();
+        let text = "Some text";
+        doc.insert_text(text, (0, 0)).unwrap();
+        doc.delete_range((0, 0), (0, text.len())).unwrap();
+        doc.insert_text(text, (0, 0)).unwrap();
+        assert_eq!(doc.iter().collect::<String>(), text);
     }
 
     #[test]
