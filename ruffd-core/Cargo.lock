@@ -389,26 +389,24 @@ checksum = "fff857943da45f546682664a79488be82e69e43c1a7a2307679ab9afb3a66d2e"
 
 [[package]]
 name = "clap"
-version = "3.2.22"
+version = "4.0.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "86447ad904c7fb335a790c9d7fe3d0d971dc523b8ccd1561a520de9a85302750"
+checksum = "5840cd9093aabeabf7fd932754c435b7674520fc3ddc935c397837050f0f1e4b"
 dependencies = [
  "atty",
  "bitflags",
  "clap_derive",
  "clap_lex",
- "indexmap",
  "once_cell",
  "strsim",
  "termcolor",
- "textwrap",
 ]
 
 [[package]]
 name = "clap_derive"
-version = "3.2.18"
+version = "4.0.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ea0c8bce528c4be4da13ea6fead8965e95b6073585a2f05204bd8f4119f82a65"
+checksum = "92289ffc6fb4a85d85c246ddb874c05a87a2e540fb6ad52f7ca07c8c1e1840b1"
 dependencies = [
  "heck",
  "proc-macro-error",
@@ -419,9 +417,9 @@ dependencies = [
 
 [[package]]
 name = "clap_lex"
-version = "0.2.4"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2850f2f5a82cbf437dd5af4d49848fbdfc27c157c3d010345776f952765261c5"
+checksum = "0d4198f73e42b4936b35b5bb248d81d2b595ecb170da0bac7655c54eedfa8da8"
 dependencies = [
  "os_str_bytes",
 ]
@@ -1777,8 +1775,8 @@ dependencies = [
 
 [[package]]
 name = "ruff"
-version = "0.0.46"
-source = "git+https://github.com/charliermarsh/ruff?tag=v0.0.46#949e4d407769f4644dc1a5a04dcbb69c344091dc"
+version = "0.0.49"
+source = "git+https://github.com/charliermarsh/ruff?rev=83f18193c249c35af6e3a210645d6c3178d1980b#83f18193c249c35af6e3a210645d6c3178d1980b"
 dependencies = [
  "anyhow",
  "bincode",
@@ -1834,7 +1832,6 @@ dependencies = [
  "anyhow",
  "lsp-types",
  "ruff",
- "rustpython-parser",
  "serde",
  "serde_json",
  "thiserror",
@@ -1856,7 +1853,7 @@ dependencies = [
 [[package]]
 name = "rustpython-ast"
 version = "0.1.0"
-source = "git+https://github.com/charliermarsh/RustPython.git?rev=966a80597d626a9a47eaec78471164422d341453#966a80597d626a9a47eaec78471164422d341453"
+source = "git+https://github.com/charliermarsh/RustPython.git?rev=4f457893efc381ad5c432576b24bcc7e4a08c641#4f457893efc381ad5c432576b24bcc7e4a08c641"
 dependencies = [
  "num-bigint",
  "rustpython-compiler-core",
@@ -1865,7 +1862,7 @@ dependencies = [
 [[package]]
 name = "rustpython-compiler-core"
 version = "0.1.2"
-source = "git+https://github.com/charliermarsh/RustPython.git?rev=966a80597d626a9a47eaec78471164422d341453#966a80597d626a9a47eaec78471164422d341453"
+source = "git+https://github.com/charliermarsh/RustPython.git?rev=4f457893efc381ad5c432576b24bcc7e4a08c641#4f457893efc381ad5c432576b24bcc7e4a08c641"
 dependencies = [
  "bincode",
  "bitflags",
@@ -1882,7 +1879,7 @@ dependencies = [
 [[package]]
 name = "rustpython-parser"
 version = "0.1.2"
-source = "git+https://github.com/charliermarsh/RustPython.git?rev=966a80597d626a9a47eaec78471164422d341453#966a80597d626a9a47eaec78471164422d341453"
+source = "git+https://github.com/charliermarsh/RustPython.git?rev=4f457893efc381ad5c432576b24bcc7e4a08c641#4f457893efc381ad5c432576b24bcc7e4a08c641"
 dependencies = [
  "ahash",
  "anyhow",
@@ -2191,12 +2188,6 @@ dependencies = [
  "phf 0.8.0",
  "phf_codegen 0.8.0",
 ]
-
-[[package]]
-name = "textwrap"
-version = "0.15.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "949517c0cf1bf4ee812e2e07e08ab448e3ae0d23472aee8a06c985f0c8815b16"
 
 [[package]]
 name = "thiserror"

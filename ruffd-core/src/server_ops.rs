@@ -17,15 +17,17 @@ fn message_into_diagnostic(msg: Message) -> lsp_types::Diagnostic {
     // only have it span a single character
     let range = {
         // diagnostic is zero indexed, but message is 1-indexed
-        let row = msg.location.row() as u32 - 1;
-        let col = msg.location.column() as u32 - 1;
+        let row_start = msg.location.row() as u32 - 1;
+        let col_start = msg.location.column() as u32 - 1;
+        let row_end = msg.end_location.row() as u32 - 1;
+        let col_end = msg.end_location.column() as u32 - 1;
         let start = lsp_types::Position {
-            line: row,
-            character: col,
+            line: row_start,
+            character: col_start,
         };
         let end = lsp_types::Position {
-            line: row,
-            character: col + 1,
+            line: row_end,
+            character: col_end,
         };
         lsp_types::Range { start, end }
     };
