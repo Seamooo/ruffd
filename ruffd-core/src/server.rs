@@ -100,6 +100,9 @@ impl Server {
         let curr_state = curr_state.unwrap();
         match rpc_message {
             RpcMessage::Request(req) => {
+                if req.method.eq("exit") {
+                    return false;
+                }
                 let user_tasks = self.user_tasks.clone();
                 let id = req.id.clone();
                 let id_clone = id.clone();
@@ -177,12 +180,16 @@ impl Server {
         loop {
             match msg_channel.recv().await.unwrap() {
                 ScheduledTask::Client(rpc_message) => {
-                    self.handle_client_msg(
-                        rpc_message,
-                        scheduler_channel.clone(),
-                        response_channel.clone(),
-                    )
-                    .await;
+                    if !self
+                        .handle_client_msg(
+                            rpc_message,
+                            scheduler_channel.clone(),
+                            response_channel.clone(),
+                        )
+                        .await
+                    {
+                        break;
+                    }
                 }
                 ScheduledTask::Server(server_task) => match server_task {
                     ServerInitiated::Notification(notif) => {

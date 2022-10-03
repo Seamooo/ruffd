@@ -127,7 +127,7 @@ impl DocumentBuffer {
             .get(start_row)
             .ok_or(DocumentError::RowOutOfBounds)?;
         // TODO generalise column bounds check to account for line endings
-        if start_col >= start_row_size {
+        if start_col > start_row_size {
             return Err(DocumentError::ColOutOfBounds);
         }
         let start_idx = self.row_tree.get_range(..start_row).unwrap_or(0) + start_col;
@@ -136,7 +136,7 @@ impl DocumentBuffer {
             .get(end_row)
             .ok_or(DocumentError::RowOutOfBounds)?;
         // TODO generalise column bounds check to account for line endings
-        if end_col >= end_row_size {
+        if end_col > end_row_size {
             return Err(DocumentError::ColOutOfBounds);
         }
         let end_idx = self.row_tree.get_range(..end_row).unwrap_or(0) + end_col;
@@ -392,13 +392,13 @@ if __name__ == '__main__':
     }
 
     #[test]
-    fn test_delete_all_and_insert() {
-        let mut doc = DocumentBuffer::new();
+    fn test_insert_back_new_line() {
+        let mut doc = DocumentBuffer::from_string("\n".to_string());
         let text = "Some text";
         doc.insert_text(text, (0, 0)).unwrap();
-        doc.delete_range((0, 0), (0, text.len())).unwrap();
-        doc.insert_text(text, (0, 0)).unwrap();
-        assert_eq!(doc.iter().collect::<String>(), text);
+        doc.delete_range((1, 0), (1, 0)).unwrap();
+        doc.insert_text("    \n", (1, 0)).unwrap();
+        assert_eq!(doc.iter().collect::<String>(), "Some text\n    \n");
     }
 
     #[test]
