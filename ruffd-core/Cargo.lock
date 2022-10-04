@@ -38,6 +38,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "annotate-snippets"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c7021ce4924a3f25f802b2cccd1af585e39ea1a363a1aa2e72afe54b67a3a7a7"
+
+[[package]]
 name = "anyhow"
 version = "1.0.65"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -365,6 +371,15 @@ name = "cfg-if"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
+
+[[package]]
+name = "chic"
+version = "1.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a5b5db619f3556839cb2223ae86ff3f9a09da2c5013be42bc9af08c9589bf70c"
+dependencies = [
+ "annotate-snippets",
+]
 
 [[package]]
 name = "chrono"
@@ -1116,6 +1131,30 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c0f80d65747a3e43d1596c7c5492d95d5edddaabd45a7fcdb02b95f644164966"
 
 [[package]]
+name = "libcst"
+version = "0.1.0"
+source = "git+https://github.com/charliermarsh/LibCST?rev=32a044c127668df44582f85699358e67803b0d73#32a044c127668df44582f85699358e67803b0d73"
+dependencies = [
+ "chic",
+ "itertools",
+ "libcst_derive",
+ "once_cell",
+ "paste",
+ "peg",
+ "regex",
+ "thiserror",
+]
+
+[[package]]
+name = "libcst_derive"
+version = "0.1.0"
+source = "git+https://github.com/charliermarsh/LibCST?rev=32a044c127668df44582f85699358e67803b0d73#32a044c127668df44582f85699358e67803b0d73"
+dependencies = [
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "lock_api"
 version = "0.4.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1406,6 +1445,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "paste"
+version = "1.0.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1de2e551fb905ac83f73f7aedf2f0cb4a0da7e35efa24a202a936269f1f18e1"
+
+[[package]]
 name = "path-absolutize"
 version = "3.0.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1422,6 +1467,33 @@ checksum = "d611d5291372b3738a34ebf0d1f849e58b1dcc1101032f76a346eaa1f8ddbb5b"
 dependencies = [
  "once_cell",
 ]
+
+[[package]]
+name = "peg"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a07f2cafdc3babeebc087e499118343442b742cc7c31b4d054682cc598508554"
+dependencies = [
+ "peg-macros",
+ "peg-runtime",
+]
+
+[[package]]
+name = "peg-macros"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4a90084dc05cf0428428e3d12399f39faad19b0909f64fb9170c9fdd6d9cd49b"
+dependencies = [
+ "peg-runtime",
+ "proc-macro2",
+ "quote",
+]
+
+[[package]]
+name = "peg-runtime"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9fa00462b37ead6d11a82c9d568b26682d78e0477dc02d1966c013af80969739"
 
 [[package]]
 name = "percent-encoding"
@@ -1775,8 +1847,8 @@ dependencies = [
 
 [[package]]
 name = "ruff"
-version = "0.0.49"
-source = "git+https://github.com/charliermarsh/ruff?rev=83f18193c249c35af6e3a210645d6c3178d1980b#83f18193c249c35af6e3a210645d6c3178d1980b"
+version = "0.0.54"
+source = "git+https://github.com/charliermarsh/ruff?rev=03e1397427a52e74e5d5c90bc18e349c988d9755#03e1397427a52e74e5d5c90bc18e349c988d9755"
 dependencies = [
  "anyhow",
  "bincode",
@@ -1791,6 +1863,7 @@ dependencies = [
  "filetime",
  "glob",
  "itertools",
+ "libcst",
  "log",
  "notify",
  "once_cell",

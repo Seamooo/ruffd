@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 lsp-types = "0.93"
-ruff = { git = "https://github.com/charliermarsh/ruff", rev = "83f18193c249c35af6e3a210645d6c3178d1980b" }
+ruff = { git = "https://github.com/charliermarsh/ruff", rev = "03e1397427a52e74e5d5c90bc18e349c988d9755", version = "0.0.54" }
 tokio = { version = "1.20", features = ["full"] }
 serde = "1.0"
 serde_json = "1.0"
