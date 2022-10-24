@@ -1,6 +1,6 @@
 use crate::collections::{AggAvlTree, Rope};
 use crate::error::{DocumentError, RuntimeError};
-use ruff::settings::Settings;
+use ruff::settings::RawSettings;
 use std::collections::HashMap;
 use std::ops::RangeBounds;
 use std::sync::Arc;
@@ -162,7 +162,7 @@ pub struct ServerState {
     pub project_root: Arc<RwLock<Option<lsp_types::Url>>>,
     pub open_buffers: Arc<RwLock<HashMap<lsp_types::Url, DocumentBuffer>>>,
     pub capabilities: Arc<RwLock<lsp_types::ServerCapabilities>>,
-    pub settings: Arc<RwLock<Settings>>,
+    pub settings: Arc<RwLock<RawSettings>>,
 }
 
 impl ServerState {
@@ -195,9 +195,9 @@ impl ServerState {
         let project_root = Arc::new(RwLock::new(project_root_val));
         let capabilities = Arc::new(RwLock::new(capabilities_val));
         let open_buffers = Arc::new(RwLock::new(HashMap::new()));
-        let settings = Arc::new(RwLock::new(Settings::from_pyproject(
-            None,
-            project_root_path,
+        let settings = Arc::new(RwLock::new(RawSettings::from_pyproject(
+            &None,
+            &project_root_path,
         )?));
         Ok(Self {
             settings,
@@ -238,14 +238,14 @@ pub struct ServerStateLocks {
     pub project_root: RwReqOpt<Option<lsp_types::Url>>,
     pub open_buffers: RwReqOpt<HashMap<lsp_types::Url, DocumentBuffer>>,
     pub capabilities: RwReqOpt<lsp_types::ServerCapabilities>,
-    pub settings: RwReqOpt<Settings>,
+    pub settings: RwReqOpt<RawSettings>,
 }
 
 pub struct ServerStateHandles<'a> {
     pub project_root: OptRwGuarded<'a, Option<lsp_types::Url>>,
     pub open_buffers: OptRwGuarded<'a, HashMap<lsp_types::Url, DocumentBuffer>>,
     pub capabilities: OptRwGuarded<'a, lsp_types::ServerCapabilities>,
-    pub settings: OptRwGuarded<'a, Settings>,
+    pub settings: OptRwGuarded<'a, RawSettings>,
 }
 
 pub async fn server_state_handles_from_locks(locks: &ServerStateLocks) -> ServerStateHandles<'_> {

@@ -31,9 +31,7 @@ fn message_into_diagnostic(msg: Message) -> lsp_types::Diagnostic {
         };
         lsp_types::Range { start, end }
     };
-    let code = Some(lsp_types::NumberOrString::String(
-        msg.kind.code().as_str().to_string(),
-    ));
+    let code = Some(lsp_types::NumberOrString::String(msg.kind.body()));
     let source = Some(String::from("ruff"));
     // uncertain if tui colours break things here
     let message = format!("{}", msg);
