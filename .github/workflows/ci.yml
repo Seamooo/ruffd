@@ -1,0 +1,58 @@
+name: Ruffd CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env: 
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build_lint_test_crate:
+    name: Build, lint, and test ${{ matrix.crate }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        crate: [ruffd-core, ruffd-macros, ruffd-types]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install latest stable
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          components: rustfmt, clippy
+      - name: Build ${{ matrix.crate }}
+        working-directory: ${{ matrix.crate }}
+        run: cargo build --release
+      - name: Lint ${{ matrix.crate }}
+        working-directory: ${{ matrix.crate }}
+        run: cargo clippy
+      - name: Check formatting for ${{ matrix.crate }}
+        working-directory: ${{ matrix.crate }}
+        run: cargo fmt --check 
+      - name: Test ${{ matrix.crate }}
+        working-directory: ${{ matrix.crate }}
+        run: cargo test
+
+  build_lint_test_ruffd:
+    name: Build, lint, and test ruffd
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install latest stable
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          components: rustfmt, clippy
+      - name: Build ruffd
+        run: cargo build --release
+      - name: Lint ruffd
+        run: cargo clippy
+      - name: Check formatting for ruffd
+        run: cargo fmt --check 
+      - name: Test ruffd
+        run: cargo test
+
