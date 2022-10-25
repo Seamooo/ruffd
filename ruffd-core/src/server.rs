@@ -115,16 +115,15 @@ pub struct TcpServer {
 }
 
 impl TcpServer {
-    pub async fn connect<A: ToSocketAddrs>(addr: A) -> Self {
-        // TODO handle below unwrap
-        let stream = TcpStream::connect(addr).await.unwrap();
+    pub async fn connect<A: ToSocketAddrs>(addr: A) -> std::io::Result<Self> {
+        let stream = TcpStream::connect(addr).await?;
         let stream = Arc::new(Mutex::new(stream));
         let reader = io::BufReader::new(TcpReader {
             inner: stream.clone(),
         });
         let writer = TcpWriter { inner: stream };
         let inner = Service::new(reader, writer);
-        Self { inner }
+        Ok(Self { inner })
     }
     pub fn get_service_mut(&mut self) -> &mut TcpService {
         &mut self.inner
