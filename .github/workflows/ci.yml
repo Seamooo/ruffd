@@ -23,6 +23,18 @@ jobs:
           profile: minimal
           toolchain: stable
           components: rustfmt, clippy
+      - uses: actions/cache@v3
+        env:
+          cache-name: cache-cargo
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ env.cache-name }}-
+            ${{ runner.os }}-build-
+            ${{ runner.os }}-
       - name: Build ${{ matrix.crate }}
         working-directory: ${{ matrix.crate }}
         run: cargo build --release
@@ -47,6 +59,18 @@ jobs:
           profile: minimal
           toolchain: stable
           components: rustfmt, clippy
+      - uses: actions/cache@v3
+        env:
+          cache-name: cache-cargo
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ env.cache-name }}-
+            ${{ runner.os }}-build-
+            ${{ runner.os }}-
       - name: Build ruffd
         run: cargo build --release
       - name: Lint ruffd
