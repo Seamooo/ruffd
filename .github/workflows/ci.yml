@@ -9,8 +9,8 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build_lint_test_crate:
-    name: Build, lint, and test ${{ matrix.crate }}
+  build:
+    name: Build ${{ matrix.crate }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -22,7 +22,6 @@ jobs:
         with:
           profile: minimal
           toolchain: stable
-          components: rustfmt, clippy
       - uses: actions/cache@v3
         env:
           cache-name: cache-cargo
@@ -38,13 +37,92 @@ jobs:
       - name: Build ${{ matrix.crate }}
         working-directory: ${{ matrix.crate }}
         run: cargo build --release
+
+  lint:
+    name: Lint ${{ matrix.crate }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        crate: [ruffd-core, ruffd-macros, ruffd-types, ruffd]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install latest stable
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          components: clippy
+      - uses: actions/cache@v3
+        env:
+          cache-name: cache-cargo
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ env.cache-name }}-
+            ${{ runner.os }}-build-
+            ${{ runner.os }}-
       - name: Lint ${{ matrix.crate }}
         working-directory: ${{ matrix.crate }}
         run: cargo clippy
-      - name: Check formatting for ${{ matrix.crate }}
-        working-directory: ${{ matrix.crate }}
-        run: cargo fmt --check 
+
+  test:
+    name: Test ${{ matrix.crate }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        crate: [ruffd-core, ruffd-macros, ruffd-types, ruffd]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install latest stable
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+      - uses: actions/cache@v3
+        env:
+          cache-name: cache-cargo
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ env.cache-name }}-
+            ${{ runner.os }}-build-
+            ${{ runner.os }}-
       - name: Test ${{ matrix.crate }}
         working-directory: ${{ matrix.crate }}
         run: cargo test
 
+  check_fmt:
+    name: Check formatting for ${{ matrix.crate }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        crate: [ruffd-core, ruffd-macros, ruffd-types, ruffd]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install latest stable
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          components: rustfmt
+      - uses: actions/cache@v3
+        env:
+          cache-name: cache-cargo
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ env.cache-name }}-
+            ${{ runner.os }}-build-
+            ${{ runner.os }}-
+      - name: Check formatting for ${{ matrix.crate }}
+        working-directory: ${{ matrix.crate }}
+        run: cargo fmt --check
