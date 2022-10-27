@@ -976,8 +976,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c05aeb6a22b8f62540c194aac980f2115af067bfe15a0734d7277a768d396b31"
 dependencies = [
  "cfg-if 1.0.0",
+ "js-sys",
  "libc",
  "wasi 0.11.0+wasi-snapshot-preview1",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -1003,6 +1005,9 @@ name = "hashbrown"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a9ee70c43aaf417c914396645a0fa852624801b24ebb7ae78fe8272889ac888"
+dependencies = [
+ "ahash",
+]
 
 [[package]]
 name = "heck"
@@ -1992,8 +1997,8 @@ dependencies = [
 
 [[package]]
 name = "ruff"
-version = "0.0.73"
-source = "git+https://github.com/charliermarsh/ruff?tag=v0.0.73#3e28d6de04161c2c99ae3996ebec979ccac456a9"
+version = "0.0.85"
+source = "git+https://github.com/charliermarsh/ruff?tag=v0.0.85#05fbd1a283d2de1b12a003f569e81b9b547724e0"
 dependencies = [
  "anyhow",
  "bincode",
@@ -2006,6 +2011,7 @@ dependencies = [
  "dirs 4.0.0",
  "fern",
  "filetime",
+ "getrandom 0.2.8",
  "glob",
  "itertools",
  "libcst",
@@ -2023,6 +2029,7 @@ dependencies = [
  "serde_json",
  "strum",
  "strum_macros",
+ "textwrap",
  "titlecase",
  "toml",
  "update-informer",
@@ -2092,7 +2099,7 @@ dependencies = [
 [[package]]
 name = "rustpython-ast"
 version = "0.1.0"
-source = "git+https://github.com/charliermarsh/RustPython.git?rev=778ae2aeb521d0438d2a91bd11238bb5c2bf9d4f#778ae2aeb521d0438d2a91bd11238bb5c2bf9d4f"
+source = "git+https://github.com/charliermarsh/RustPython.git?rev=1b253a12705f84972cd76e8dc1cdaaccb233e5a5#1b253a12705f84972cd76e8dc1cdaaccb233e5a5"
 dependencies = [
  "num-bigint",
  "rustpython-common",
@@ -2102,7 +2109,7 @@ dependencies = [
 [[package]]
 name = "rustpython-common"
 version = "0.0.0"
-source = "git+https://github.com/charliermarsh/RustPython.git?rev=778ae2aeb521d0438d2a91bd11238bb5c2bf9d4f#778ae2aeb521d0438d2a91bd11238bb5c2bf9d4f"
+source = "git+https://github.com/charliermarsh/RustPython.git?rev=1b253a12705f84972cd76e8dc1cdaaccb233e5a5#1b253a12705f84972cd76e8dc1cdaaccb233e5a5"
 dependencies = [
  "ascii",
  "cfg-if 1.0.0",
@@ -2125,7 +2132,7 @@ dependencies = [
 [[package]]
 name = "rustpython-compiler-core"
 version = "0.1.2"
-source = "git+https://github.com/charliermarsh/RustPython.git?rev=778ae2aeb521d0438d2a91bd11238bb5c2bf9d4f#778ae2aeb521d0438d2a91bd11238bb5c2bf9d4f"
+source = "git+https://github.com/charliermarsh/RustPython.git?rev=1b253a12705f84972cd76e8dc1cdaaccb233e5a5#1b253a12705f84972cd76e8dc1cdaaccb233e5a5"
 dependencies = [
  "bincode",
  "bitflags",
@@ -2142,7 +2149,7 @@ dependencies = [
 [[package]]
 name = "rustpython-parser"
 version = "0.1.2"
-source = "git+https://github.com/charliermarsh/RustPython.git?rev=778ae2aeb521d0438d2a91bd11238bb5c2bf9d4f#778ae2aeb521d0438d2a91bd11238bb5c2bf9d4f"
+source = "git+https://github.com/charliermarsh/RustPython.git?rev=1b253a12705f84972cd76e8dc1cdaaccb233e5a5#1b253a12705f84972cd76e8dc1cdaaccb233e5a5"
 dependencies = [
  "ahash",
  "anyhow",
@@ -2345,6 +2352,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a507befe795404456341dfab10cef66ead4c041f62b8b11bbb92bffe5d0953e0"
 
 [[package]]
+name = "smawk"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f67ad224767faa3c7d8b6d91985b78e70a1324408abcb1cfcc2be4c06bc06043"
+
+[[package]]
 name = "socket2"
 version = "0.4.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2478,6 +2491,17 @@ dependencies = [
  "nom",
  "phf 0.8.0",
  "phf_codegen 0.8.0",
+]
+
+[[package]]
+name = "textwrap"
+version = "0.15.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b7b3e525a49ec206798b40326a44121291b530c963cfb01018f63e135bac543d"
+dependencies = [
+ "smawk",
+ "unicode-linebreak",
+ "unicode-width",
 ]
 
 [[package]]
@@ -2692,6 +2716,16 @@ name = "unicode-ident"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6ceab39d59e4c9499d4e5a8ee0e2735b891bb7308ac83dfb4e80cad195c9f6f3"
+
+[[package]]
+name = "unicode-linebreak"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c5faade31a542b8b35855fff6e8def199853b2da8da256da52f52f1316ee3137"
+dependencies = [
+ "hashbrown",
+ "regex",
+]
 
 [[package]]
 name = "unicode-normalization"

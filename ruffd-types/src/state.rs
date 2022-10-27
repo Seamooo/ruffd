@@ -198,6 +198,7 @@ impl ServerState {
         let settings = Arc::new(RwLock::new(RawSettings::from_pyproject(
             &None,
             &project_root_path,
+            true,
         )?));
         Ok(Self {
             settings,

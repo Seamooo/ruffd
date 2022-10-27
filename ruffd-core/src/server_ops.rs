@@ -61,7 +61,7 @@ pub fn run_diagnostic_op(document_uri: lsp_types::Url) -> ServerNotification {
                     if let Some(buffer) = open_buffers.get(&document_uri) {
                         let doc = buffer.iter().collect::<String>();
                         if let Ok(path) = document_uri.to_file_path() {
-                            check(&path, &doc).unwrap_or_default()
+                            check(&path, &doc, true).unwrap_or_default()
                         } else {
                             vec![]
                         }
