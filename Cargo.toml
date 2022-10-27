@@ -1,10 +1,15 @@
-[package]
-name = "ruffd"
-version = "0.0.1"
+[workspace]
+resolver = "2"
+members = [
+	"ruffd",
+	"ruffd-core",
+	"ruffd-types",
+	"ruffd-macros",
+]
+exclude = []
+
+[workspace.package]
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
-ruffd-core = { path="./ruffd-core" }
-ruffd-types = { path="./ruffd-types" }
+rust-version = "1.64"
+license = "MIT"
+authors = ["Seamus Mulholland-Patterson <seamus1103@gmail.com>"]

@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        crate: [ruffd-core, ruffd-macros, ruffd-types]
+        crate: [ruffd-core, ruffd-macros, ruffd-types, ruffd]
     steps:
       - uses: actions/checkout@v3
       - name: Install latest stable
@@ -46,37 +46,5 @@ jobs:
         run: cargo fmt --check 
       - name: Test ${{ matrix.crate }}
         working-directory: ${{ matrix.crate }}
-        run: cargo test
-
-  build_lint_test_ruffd:
-    name: Build, lint, and test ruffd
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Install latest stable
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          components: rustfmt, clippy
-      - uses: actions/cache@v3
-        env:
-          cache-name: cache-cargo
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-
-            ${{ runner.os }}-build-
-            ${{ runner.os }}-
-      - name: Build ruffd
-        run: cargo build --release
-      - name: Lint ruffd
-        run: cargo clippy
-      - name: Check formatting for ruffd
-        run: cargo fmt --check 
-      - name: Test ruffd
         run: cargo test
 
