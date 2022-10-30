@@ -14,8 +14,6 @@ use std::sync::Arc;
 // TODO macro the unwrapping of state_handles
 
 fn message_into_diagnostic(msg: Message) -> lsp_types::Diagnostic {
-    // As ruff currently doesn't support the span of the error,
-    // only have it span a single character
     let range = {
         // diagnostic is zero indexed, but message rows are 1-indexed
         let row_start = msg.location.row() as u32 - 1;
@@ -32,10 +30,11 @@ fn message_into_diagnostic(msg: Message) -> lsp_types::Diagnostic {
         };
         lsp_types::Range { start, end }
     };
-    let code = Some(lsp_types::NumberOrString::String(msg.kind.body()));
+    let code = Some(lsp_types::NumberOrString::String(
+        msg.kind.code().as_ref().to_string(),
+    ));
     let source = Some(String::from("ruff"));
-    // uncertain if tui colours break things here
-    let message = format!("{}", msg);
+    let message = msg.kind.body();
     lsp_types::Diagnostic {
         range,
         code,
@@ -57,7 +56,6 @@ fn diagnostics_from_doc(path: &Path, doc: &str) -> Vec<lsp_types::Diagnostic> {
         .collect()
 }
 
-// NOTE require interface from ruff before checks can be run
 pub fn run_diagnostic_op(document_uri: lsp_types::Url) -> ServerNotification {
     let exec: ServerNotificationExec = Box::new(
         move |state_handles: ServerStateHandles<'_>, _scheduler_channel: Sender<ScheduledTask>| {
