@@ -1997,8 +1997,8 @@ dependencies = [
 
 [[package]]
 name = "ruff"
-version = "0.0.85"
-source = "git+https://github.com/charliermarsh/ruff?tag=v0.0.85#05fbd1a283d2de1b12a003f569e81b9b547724e0"
+version = "0.0.92"
+source = "git+https://github.com/charliermarsh/ruff?tag=v0.0.92#138b06c98a7ddfcf5f4c30a79706c5956103fb47"
 dependencies = [
  "anyhow",
  "bincode",
@@ -2099,7 +2099,7 @@ dependencies = [
 [[package]]
 name = "rustpython-ast"
 version = "0.1.0"
-source = "git+https://github.com/charliermarsh/RustPython.git?rev=1b253a12705f84972cd76e8dc1cdaaccb233e5a5#1b253a12705f84972cd76e8dc1cdaaccb233e5a5"
+source = "git+https://github.com/RustPython/RustPython.git?rev=77b821a1941019fe34f73ce17cea013ae1b98fd0#77b821a1941019fe34f73ce17cea013ae1b98fd0"
 dependencies = [
  "num-bigint",
  "rustpython-common",
@@ -2109,7 +2109,7 @@ dependencies = [
 [[package]]
 name = "rustpython-common"
 version = "0.0.0"
-source = "git+https://github.com/charliermarsh/RustPython.git?rev=1b253a12705f84972cd76e8dc1cdaaccb233e5a5#1b253a12705f84972cd76e8dc1cdaaccb233e5a5"
+source = "git+https://github.com/RustPython/RustPython.git?rev=77b821a1941019fe34f73ce17cea013ae1b98fd0#77b821a1941019fe34f73ce17cea013ae1b98fd0"
 dependencies = [
  "ascii",
  "cfg-if 1.0.0",
@@ -2132,7 +2132,7 @@ dependencies = [
 [[package]]
 name = "rustpython-compiler-core"
 version = "0.1.2"
-source = "git+https://github.com/charliermarsh/RustPython.git?rev=1b253a12705f84972cd76e8dc1cdaaccb233e5a5#1b253a12705f84972cd76e8dc1cdaaccb233e5a5"
+source = "git+https://github.com/RustPython/RustPython.git?rev=77b821a1941019fe34f73ce17cea013ae1b98fd0#77b821a1941019fe34f73ce17cea013ae1b98fd0"
 dependencies = [
  "bincode",
  "bitflags",
@@ -2149,7 +2149,7 @@ dependencies = [
 [[package]]
 name = "rustpython-parser"
 version = "0.1.2"
-source = "git+https://github.com/charliermarsh/RustPython.git?rev=1b253a12705f84972cd76e8dc1cdaaccb233e5a5#1b253a12705f84972cd76e8dc1cdaaccb233e5a5"
+source = "git+https://github.com/RustPython/RustPython.git?rev=77b821a1941019fe34f73ce17cea013ae1b98fd0#77b821a1941019fe34f73ce17cea013ae1b98fd0"
 dependencies = [
  "ahash",
  "anyhow",
