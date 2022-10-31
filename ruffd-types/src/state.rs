@@ -1,6 +1,7 @@
 use crate::collections::{AggAvlTree, Rope};
 use crate::error::{DocumentError, RuntimeError};
 use ruff::settings::configuration::Configuration;
+use ruffd_macros::server_state;
 use std::collections::HashMap;
 use std::ops::RangeBounds;
 use std::sync::Arc;
@@ -158,11 +159,12 @@ impl DocumentBuffer {
     }
 }
 
+#[server_state]
 pub struct ServerState {
-    pub project_root: Arc<RwLock<Option<lsp_types::Url>>>,
-    pub open_buffers: Arc<RwLock<HashMap<lsp_types::Url, DocumentBuffer>>>,
-    pub capabilities: Arc<RwLock<lsp_types::ServerCapabilities>>,
-    pub settings: Arc<RwLock<Configuration>>,
+    pub project_root: Option<lsp_types::Url>,
+    pub open_buffers: HashMap<lsp_types::Url, DocumentBuffer>,
+    pub capabilities: lsp_types::ServerCapabilities,
+    pub settings: Configuration,
 }
 
 impl ServerState {
@@ -224,52 +226,6 @@ impl<T> RwReq<T> {
             Self::Read(x) => RwGuarded::Read(x.read().await),
             Self::Write(x) => RwGuarded::Write(x.write().await),
         }
-    }
-}
-
-type RwReqOpt<T> = Option<RwReq<T>>;
-
-type OptRwGuarded<'a, T> = Option<RwGuarded<'a, T>>;
-
-// TODO potentially create a macro for below based on ServerState
-
-#[derive(Default)]
-pub struct ServerStateLocks {
-    pub project_root: RwReqOpt<Option<lsp_types::Url>>,
-    pub open_buffers: RwReqOpt<HashMap<lsp_types::Url, DocumentBuffer>>,
-    pub capabilities: RwReqOpt<lsp_types::ServerCapabilities>,
-    pub settings: RwReqOpt<Configuration>,
-}
-
-pub struct ServerStateHandles<'a> {
-    pub project_root: OptRwGuarded<'a, Option<lsp_types::Url>>,
-    pub open_buffers: OptRwGuarded<'a, HashMap<lsp_types::Url, DocumentBuffer>>,
-    pub capabilities: OptRwGuarded<'a, lsp_types::ServerCapabilities>,
-    pub settings: OptRwGuarded<'a, Configuration>,
-}
-
-pub async fn server_state_handles_from_locks(locks: &ServerStateLocks) -> ServerStateHandles<'_> {
-    let project_root = match &locks.project_root {
-        Some(x) => Some(x.lock().await),
-        None => None,
-    };
-    let open_buffers = match &locks.open_buffers {
-        Some(x) => Some(x.lock().await),
-        None => None,
-    };
-    let capabilities = match &locks.capabilities {
-        Some(x) => Some(x.lock().await),
-        None => None,
-    };
-    let settings = match &locks.settings {
-        Some(x) => Some(x.lock().await),
-        None => None,
-    };
-    ServerStateHandles {
-        project_root,
-        open_buffers,
-        capabilities,
-        settings,
     }
 }
 
