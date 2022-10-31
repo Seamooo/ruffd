@@ -4,8 +4,8 @@ use proc_macro2::Span;
 use proc_macro_error::{abort, proc_macro_error, Diagnostic, Level};
 use quote::{quote, ToTokens};
 use syn::{
-    parse_macro_input, parse_quote, Fields, FnArg, GenericParam, Ident, Index, ItemFn, ItemStruct,
-    Pat, PatIdent, PatType, Stmt, Token, Type,
+    parse_macro_input, parse_quote, AttributeArgs, Fields, FnArg, GenericParam, Ident, Index,
+    ItemFn, ItemStruct, Lit, Meta, NestedMeta, Pat, PatIdent, PatType, Stmt, Token, Type,
 };
 
 struct FnDetails {
@@ -243,7 +243,7 @@ pub fn notification(args: TokenStream, stream: TokenStream) -> TokenStream {
     .into()
 }
 
-fn wrap_rw_fields(item: &mut ItemStruct) {
+fn wrap_rw_fields(item: &mut ItemStruct, flags: &ServerStateFlags) {
     let fields = match &mut item.fields {
         Fields::Named(x) => Some(&mut x.named),
         Fields::Unnamed(x) => Some(&mut x.unnamed),
@@ -252,13 +252,17 @@ fn wrap_rw_fields(item: &mut ItemStruct) {
     if let Some(fields) = fields {
         for field in fields.iter_mut() {
             let inner_ty = &field.ty;
-            let new_ty: Type = parse_quote!(::std::sync::Arc<::tokio::sync::RwLock<#inner_ty>>);
+            let new_ty: Type = if flags.in_ruffd_types {
+                parse_quote!(::std::sync::Arc<::tokio::sync::RwLock<#inner_ty>>)
+            } else {
+                parse_quote!(::std::sync::Arc<::ruffd_types::tokio::sync::RwLock<#inner_ty>>)
+            };
             field.ty = new_ty;
         }
     }
 }
 
-fn make_handle_struct(item: &mut ItemStruct) {
+fn make_handle_struct(item: &mut ItemStruct, flags: &ServerStateFlags) {
     let ident_prefix = item.ident.to_string();
     item.ident = Ident::new(&format!("{}Handles", ident_prefix), Span::call_site());
     let guard_lifetime: GenericParam = parse_quote!('guard);
@@ -273,16 +277,18 @@ fn make_handle_struct(item: &mut ItemStruct) {
     if let Some(fields) = fields {
         for field in fields.iter_mut() {
             let inner_ty = &field.ty;
-            let new_ty: Type = parse_quote!(
-                Option<crate::state::RwGuarded<'guard, #inner_ty>>
-            );
+            let new_ty: Type = if flags.in_ruffd_types {
+                parse_quote!(Option<crate::state::RwGuarded<'guard, #inner_ty>>)
+            } else {
+                parse_quote!(Option<::ruffd_types::RwGuarded<'guard, #inner_ty>>)
+            };
             field.ty = new_ty;
         }
     }
     item.attrs = vec![];
 }
 
-fn make_lock_req_struct(item: &mut ItemStruct) {
+fn make_lock_req_struct(item: &mut ItemStruct, flags: &ServerStateFlags) {
     let ident_prefix = item.ident.to_string();
     item.ident = Ident::new(&format!("{}Locks", ident_prefix), Span::call_site());
     let fields = match &mut item.fields {
@@ -293,9 +299,11 @@ fn make_lock_req_struct(item: &mut ItemStruct) {
     if let Some(fields) = fields {
         for field in fields.iter_mut() {
             let inner_ty = &field.ty;
-            let new_ty: Type = parse_quote!(
-                Option<crate::state::RwReq<#inner_ty>>
-            );
+            let new_ty: Type = if flags.in_ruffd_types {
+                parse_quote!(Option<crate::state::RwReq<#inner_ty>>)
+            } else {
+                parse_quote!(Option<::ruffd_types::RwReq<#inner_ty>>)
+            };
             field.ty = new_ty;
         }
     }
@@ -375,6 +383,32 @@ fn make_lock_to_handle_func(item: &ItemStruct) -> impl ToTokens {
     }
 }
 
+#[derive(Default)]
+struct ServerStateFlags {
+    in_ruffd_types: bool,
+}
+
+impl ServerStateFlags {
+    fn from_attribute_args(args: &AttributeArgs) -> Self {
+        let mut rv = Self::default();
+        let in_ruffd_types_ident = Ident::new("in_ruffd_types", Span::call_site());
+        for arg in args.iter() {
+            match arg {
+                NestedMeta::Meta(Meta::NameValue(name_value)) => {
+                    if name_value.path.is_ident(&in_ruffd_types_ident) {
+                        match &name_value.lit {
+                            Lit::Bool(x) => rv.in_ruffd_types = x.value,
+                            _ => (),
+                        }
+                    }
+                }
+                _ => (),
+            }
+        }
+        rv
+    }
+}
+
 /// Transforms an input struct into 3 new structs and a convenience
 /// async function
 ///
@@ -390,27 +424,28 @@ fn make_lock_to_handle_func(item: &ItemStruct) -> impl ToTokens {
 /// `<Ident:snake_case>_handles_from_locks` will construct an `<Ident>Handles`
 /// type from a reference to `<Ident>Locks`
 ///
-/// # Note
+/// # Arguments
 ///
-/// This macro is only for use inside `ruffd_types` as the ruffd_types imports
-/// are aliased with `crate` rather than `::ruffd_types`
+/// Use `#[server_state(in_ruffd_types = true)]` for use inside the ruffd_types crate
 #[proc_macro_error]
 #[proc_macro_attribute]
-pub fn server_state(_: TokenStream, stream: TokenStream) -> TokenStream {
+pub fn server_state(args: TokenStream, stream: TokenStream) -> TokenStream {
     let input_struct = parse_macro_input!(stream as ItemStruct);
+    let input_args = parse_macro_input!(args as AttributeArgs);
+    let flags = ServerStateFlags::from_attribute_args(&input_args);
     let lock_wrapped_struct = {
         let mut rv = input_struct.clone();
-        wrap_rw_fields(&mut rv);
+        wrap_rw_fields(&mut rv, &flags);
         rv
     };
     let handle_struct = {
         let mut rv = input_struct.clone();
-        make_handle_struct(&mut rv);
+        make_handle_struct(&mut rv, &flags);
         rv
     };
     let lock_req_struct = {
         let mut rv = input_struct.clone();
-        make_lock_req_struct(&mut rv);
+        make_lock_req_struct(&mut rv, &flags);
         rv
     };
     let convenience_func = make_lock_to_handle_func(&input_struct);
@@ -429,5 +464,12 @@ mod test {
     fn test_notification() {
         let t = trybuild::TestCases::new();
         t.compile_fail("tests/notification/*.rs");
+    }
+    #[test]
+    fn test_server_state() {
+        let t = trybuild::TestCases::new();
+        // NOTE tests do not include the flag "in_ruffd_types" as it
+        // is only possible to test inside ruffd_types
+        t.compile_fail("tests/server_state/*.rs");
     }
 }

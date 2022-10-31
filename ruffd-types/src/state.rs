@@ -159,7 +159,7 @@ impl DocumentBuffer {
     }
 }
 
-#[server_state]
+#[server_state(in_ruffd_types = true)]
 pub struct ServerState {
     pub project_root: Option<lsp_types::Url>,
     pub open_buffers: HashMap<lsp_types::Url, DocumentBuffer>,
