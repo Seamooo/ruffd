@@ -326,14 +326,10 @@ impl<T> RopeNode<T> {
                 } else {
                     Some(right)
                 };
-                #[allow(clippy::unnecessary_unwrap)]
-                if lhs.is_none() {
-                    rhs
-                } else if rhs.is_none() {
-                    lhs
-                } else {
-                    let (lhs, rhs) = (lhs.unwrap(), rhs.unwrap());
-                    Some(Self::from_nodes(lhs, rhs))
+                match (lhs, rhs) {
+                    (None, rhs) => rhs,
+                    (lhs, None) => lhs,
+                    (Some(lhs), Some(rhs)) => Some(Self::from_nodes(lhs, rhs)),
                 }
             }
         }
