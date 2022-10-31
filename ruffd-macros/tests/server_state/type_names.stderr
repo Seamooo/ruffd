@@ -12,5 +12,5 @@ note: function defined here
   --> tests/server_state/type_names.rs:5:1
    |
 5  | #[server_state]
-   | ^^^^^^^^^^^^^^^
+   | -^^^^^^^^^^^^^^
    = note: this error originates in the attribute macro `server_state` (in Nightly builds, run with -Z macro-backtrace for more info)
