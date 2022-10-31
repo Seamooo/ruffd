@@ -1,8 +1,12 @@
+use convert_case::{Case, Casing};
 use proc_macro::{self, TokenStream};
 use proc_macro2::Span;
 use proc_macro_error::{abort, proc_macro_error, Diagnostic, Level};
 use quote::{quote, ToTokens};
-use syn::{parse_macro_input, parse_quote, FnArg, Ident, ItemFn, Pat, PatIdent, PatType, Stmt};
+use syn::{
+    parse_macro_input, parse_quote, AttributeArgs, Fields, FnArg, GenericParam, Ident, Index,
+    ItemFn, ItemStruct, Lit, Meta, NestedMeta, Pat, PatIdent, PatType, Stmt, Token, Type,
+};
 
 struct FnDetails {
     asyncness: bool,
@@ -239,11 +243,233 @@ pub fn notification(args: TokenStream, stream: TokenStream) -> TokenStream {
     .into()
 }
 
+fn wrap_rw_fields(item: &mut ItemStruct, flags: &ServerStateFlags) {
+    let fields = match &mut item.fields {
+        Fields::Named(x) => Some(&mut x.named),
+        Fields::Unnamed(x) => Some(&mut x.unnamed),
+        Fields::Unit => None,
+    };
+    if let Some(fields) = fields {
+        for field in fields.iter_mut() {
+            let inner_ty = &field.ty;
+            let new_ty: Type = if flags.in_ruffd_types {
+                parse_quote!(::std::sync::Arc<::tokio::sync::RwLock<#inner_ty>>)
+            } else {
+                parse_quote!(::std::sync::Arc<::ruffd_types::tokio::sync::RwLock<#inner_ty>>)
+            };
+            field.ty = new_ty;
+        }
+    }
+}
+
+fn make_handle_struct(item: &mut ItemStruct, flags: &ServerStateFlags) {
+    let ident_prefix = item.ident.to_string();
+    item.ident = Ident::new(&format!("{}Handles", ident_prefix), Span::call_site());
+    let guard_lifetime: GenericParam = parse_quote!('guard);
+    item.generics.params.insert(0, guard_lifetime);
+    item.generics.lt_token = Some(<Token![<]>::default());
+    item.generics.gt_token = Some(<Token![>]>::default());
+    let fields = match &mut item.fields {
+        Fields::Named(x) => Some(&mut x.named),
+        Fields::Unnamed(x) => Some(&mut x.unnamed),
+        Fields::Unit => None,
+    };
+    if let Some(fields) = fields {
+        for field in fields.iter_mut() {
+            let inner_ty = &field.ty;
+            let new_ty: Type = if flags.in_ruffd_types {
+                parse_quote!(Option<crate::state::RwGuarded<'guard, #inner_ty>>)
+            } else {
+                parse_quote!(Option<::ruffd_types::RwGuarded<'guard, #inner_ty>>)
+            };
+            field.ty = new_ty;
+        }
+    }
+    item.attrs = vec![];
+}
+
+fn make_lock_req_struct(item: &mut ItemStruct, flags: &ServerStateFlags) {
+    let ident_prefix = item.ident.to_string();
+    item.ident = Ident::new(&format!("{}Locks", ident_prefix), Span::call_site());
+    let fields = match &mut item.fields {
+        Fields::Named(x) => Some(&mut x.named),
+        Fields::Unnamed(x) => Some(&mut x.unnamed),
+        Fields::Unit => None,
+    };
+    if let Some(fields) = fields {
+        for field in fields.iter_mut() {
+            let inner_ty = &field.ty;
+            let new_ty: Type = if flags.in_ruffd_types {
+                parse_quote!(Option<crate::state::RwReq<#inner_ty>>)
+            } else {
+                parse_quote!(Option<::ruffd_types::RwReq<#inner_ty>>)
+            };
+            field.ty = new_ty;
+        }
+    }
+    item.attrs = vec![parse_quote!(#[derive(Default)])];
+}
+
+fn make_lock_to_handle_func(item: &ItemStruct) -> impl ToTokens {
+    let ident_prefix = item.ident.to_string();
+    let func_ident = Ident::new(
+        format!("{}_handles_from_locks", ident_prefix.to_case(Case::Snake)).as_str(),
+        Span::call_site(),
+    );
+    let locks_ty = Ident::new(format!("{}Locks", ident_prefix).as_str(), Span::call_site());
+    let handles_ty = Ident::new(
+        format!("{}Handles", ident_prefix).as_str(),
+        Span::call_site(),
+    );
+    let (statements, return_expr) = match &item.fields {
+        Fields::Named(fields) => {
+            let variable_idents = fields
+                .named
+                .iter()
+                .map(|field| field.ident.as_ref().unwrap().clone())
+                .collect::<Vec<_>>();
+            let statements = variable_idents
+                .iter()
+                .map(|field_ident| {
+                    quote! {
+                        let #field_ident = match &locks.#field_ident {
+                            Some(x) => Some(x.lock().await),
+                            None => None,
+                        };
+                    }
+                })
+                .collect::<Vec<_>>();
+            let variable_idents_iter = variable_idents.iter();
+            let return_expr = quote! {
+                #handles_ty {
+                    #(#variable_idents_iter),*
+                }
+            };
+            (statements, return_expr)
+        }
+        Fields::Unnamed(fields) => {
+            let variable_idents = fields
+                .unnamed
+                .iter()
+                .enumerate()
+                .map(|(idx, _)| Ident::new(format!("var_{}", idx).as_str(), Span::call_site()))
+                .collect::<Vec<_>>();
+            let statements = variable_idents
+                .iter()
+                .enumerate()
+                .map(|(idx, var_name)| {
+                    let field_idx = Index::from(idx);
+                    quote! {
+                        let #var_name = match &locks.#field_idx {
+                            Some(x) => Some(x.lock().await),
+                            None => None,
+                        };
+                    }
+                })
+                .collect::<Vec<_>>();
+            let variable_idents_iter = variable_idents.iter();
+            let return_expr = quote!(#handles_ty(#(#variable_idents_iter),*));
+            (statements, return_expr)
+        }
+        Fields::Unit => (vec![quote!()], quote!(#handles_ty())),
+    };
+    let statements_iter = statements.iter();
+    quote! {
+        pub async fn #func_ident(locks: &#locks_ty) -> #handles_ty<'_>
+        {
+            #(#statements_iter)*
+            #return_expr
+        }
+    }
+}
+
+#[derive(Default)]
+struct ServerStateFlags {
+    in_ruffd_types: bool,
+}
+
+impl ServerStateFlags {
+    fn from_attribute_args(args: &AttributeArgs) -> Self {
+        let mut rv = Self::default();
+        let in_ruffd_types_ident = Ident::new("in_ruffd_types", Span::call_site());
+        for arg in args.iter() {
+            match arg {
+                NestedMeta::Meta(Meta::NameValue(name_value)) => {
+                    if name_value.path.is_ident(&in_ruffd_types_ident) {
+                        match &name_value.lit {
+                            Lit::Bool(x) => rv.in_ruffd_types = x.value,
+                            _ => (),
+                        }
+                    }
+                }
+                _ => (),
+            }
+        }
+        rv
+    }
+}
+
+/// Transforms an input struct into 3 new structs and a convenience
+/// async function
+///
+/// `<Ident>` will contain the same struct with all fields having
+/// public access and wrapped by `Arc<tokio::sync::RwLock<T>>`
+///
+/// `<Ident>Locks` will contain fields with corresponding identifiers to
+/// the original struct, wrapped with `Option<ruffd_types::state::RwReq<T>>`
+///
+/// `<Ident>Handles` will contain fields with corresponding identifiers to the original struct,
+/// wrapped with `Option<ruffd_types::state::RwGuarded<'guard,T>>`
+///
+/// `<Ident:snake_case>_handles_from_locks` will construct an `<Ident>Handles`
+/// type from a reference to `<Ident>Locks`
+///
+/// # Arguments
+///
+/// Use `#[server_state(in_ruffd_types = true)]` for use inside the ruffd_types crate
+#[proc_macro_error]
+#[proc_macro_attribute]
+pub fn server_state(args: TokenStream, stream: TokenStream) -> TokenStream {
+    let input_struct = parse_macro_input!(stream as ItemStruct);
+    let input_args = parse_macro_input!(args as AttributeArgs);
+    let flags = ServerStateFlags::from_attribute_args(&input_args);
+    let lock_wrapped_struct = {
+        let mut rv = input_struct.clone();
+        wrap_rw_fields(&mut rv, &flags);
+        rv
+    };
+    let handle_struct = {
+        let mut rv = input_struct.clone();
+        make_handle_struct(&mut rv, &flags);
+        rv
+    };
+    let lock_req_struct = {
+        let mut rv = input_struct.clone();
+        make_lock_req_struct(&mut rv, &flags);
+        rv
+    };
+    let convenience_func = make_lock_to_handle_func(&input_struct);
+    quote! {
+        #lock_wrapped_struct
+        #handle_struct
+        #lock_req_struct
+        #convenience_func
+    }
+    .into()
+}
+
 #[cfg(test)]
 mod test {
     #[test]
     fn test_notification() {
         let t = trybuild::TestCases::new();
         t.compile_fail("tests/notification/*.rs");
+    }
+    #[test]
+    fn test_server_state() {
+        let t = trybuild::TestCases::new();
+        // NOTE tests do not include the flag "in_ruffd_types" as it
+        // is only possible to test inside ruffd_types
+        t.compile_fail("tests/server_state/*.rs");
     }
 }

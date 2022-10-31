@@ -1,0 +1,16 @@
+error[E0308]: mismatched types
+  --> tests/server_state/type_names.rs:17:46
+   |
+17 |     let handles_fut = foo_handles_from_locks(locks);
+   |                       ---------------------- ^^^^^
+   |                       |                      |
+   |                       |                      expected `&FooLocks`, found struct `FooLocks`
+   |                       |                      help: consider borrowing here: `&locks`
+   |                       arguments to this function are incorrect
+   |
+note: function defined here
+  --> tests/server_state/type_names.rs:5:1
+   |
+5  | #[server_state]
+   | -^^^^^^^^^^^^^^
+   = note: this error originates in the attribute macro `server_state` (in Nightly builds, run with -Z macro-backtrace for more info)
