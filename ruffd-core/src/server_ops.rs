@@ -16,10 +16,10 @@ fn message_into_diagnostic(msg: Message) -> lsp_types::Diagnostic {
     // As ruff currently doesn't support the span of the error,
     // only have it span a single character
     let range = {
-        // diagnostic is zero indexed, but message is 1-indexed
-        let row_start = msg.location.row() as u32 - 1;
+        // diagnostic is zero indexed, but message rows are 1-indexed
+        let row_start = msg.location.row() as u32;
         let col_start = msg.location.column() as u32 - 1;
-        let row_end = msg.end_location.row() as u32 - 1;
+        let row_end = msg.end_location.row() as u32;
         let col_end = msg.end_location.column() as u32 - 1;
         let start = lsp_types::Position {
             line: row_start,
@@ -61,7 +61,7 @@ pub fn run_diagnostic_op(document_uri: lsp_types::Url) -> ServerNotification {
                     if let Some(buffer) = open_buffers.get(&document_uri) {
                         let doc = buffer.iter().collect::<String>();
                         if let Ok(path) = document_uri.to_file_path() {
-                            check(&path, &doc, true).unwrap_or_default()
+                            check(&path, &doc).unwrap_or_default()
                         } else {
                             vec![]
                         }
