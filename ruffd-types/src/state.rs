@@ -185,6 +185,15 @@ impl ServerState {
                     save: None,
                 },
             )),
+            code_action_provider: Some(lsp_types::CodeActionProviderCapability::Options(
+                lsp_types::CodeActionOptions {
+                    code_action_kinds: Some(vec![lsp_types::CodeActionKind::QUICKFIX]),
+                    work_done_progress_options: lsp_types::WorkDoneProgressOptions {
+                        work_done_progress: None,
+                    },
+                    resolve_provider: None,
+                },
+            )),
             ..Default::default()
         };
         let project_root_path = match &project_root_val {
