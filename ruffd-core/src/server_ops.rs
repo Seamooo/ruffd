@@ -1,5 +1,5 @@
 use ruffd_types::ruff::check;
-use ruffd_types::ruff::message::Message;
+use ruffd_types::ruff::checks::Check;
 use ruffd_types::tokio::sync::mpsc::Sender;
 use ruffd_types::tokio::sync::Mutex;
 use ruffd_types::{lsp_types, serde_json};
@@ -10,16 +10,13 @@ use ruffd_types::{
 use std::path::Path;
 use std::sync::Arc;
 
-// TODO macro the create locks fn
-// TODO macro the unwrapping of state_handles
-
-fn message_into_diagnostic(msg: Message) -> lsp_types::Diagnostic {
+fn check_into_diagnostic(check: Check) -> lsp_types::Diagnostic {
     let range = {
         // diagnostic is zero indexed, but message rows are 1-indexed
-        let row_start = msg.location.row() as u32 - 1;
-        let col_start = msg.location.column() as u32;
-        let row_end = msg.end_location.row() as u32 - 1;
-        let col_end = msg.end_location.column() as u32;
+        let row_start = check.location.row() as u32 - 1;
+        let col_start = check.location.column() as u32;
+        let row_end = check.end_location.row() as u32 - 1;
+        let col_end = check.end_location.column() as u32;
         let start = lsp_types::Position {
             line: row_start,
             character: col_start,
@@ -31,10 +28,10 @@ fn message_into_diagnostic(msg: Message) -> lsp_types::Diagnostic {
         lsp_types::Range { start, end }
     };
     let code = Some(lsp_types::NumberOrString::String(
-        msg.kind.code().as_ref().to_string(),
+        check.kind.code().as_ref().to_string(),
     ));
     let source = Some(String::from("ruff"));
-    let message = msg.kind.body();
+    let message = check.kind.body();
     lsp_types::Diagnostic {
         range,
         code,
@@ -52,11 +49,13 @@ fn diagnostics_from_doc(path: &Path, doc: &str) -> Vec<lsp_types::Diagnostic> {
     check(path, doc)
         .unwrap_or_default()
         .into_iter()
-        .map(message_into_diagnostic)
+        .map(check_into_diagnostic)
         .collect()
 }
 
 pub fn run_diagnostic_op(document_uri: lsp_types::Url) -> ServerNotification {
+    // TODO macro the create locks fn
+    // TODO macro the unwrapping of state_handles
     let exec: ServerNotificationExec = Box::new(
         move |state_handles: ServerStateHandles<'_>, _scheduler_channel: Sender<ScheduledTask>| {
             Box::pin(async move {
