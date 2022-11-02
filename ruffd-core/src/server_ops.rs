@@ -1,5 +1,5 @@
+use crate::ruff_utils::diagnostic_from_check;
 use ruffd_types::ruff::check;
-use ruffd_types::ruff::checks::Check;
 use ruffd_types::tokio::sync::mpsc::Sender;
 use ruffd_types::tokio::sync::Mutex;
 use ruffd_types::{lsp_types, serde_json};
@@ -8,41 +8,6 @@ use ruffd_types::{
     ServerNotification, ServerNotificationExec, ServerState, ServerStateHandles, ServerStateLocks,
 };
 use std::sync::Arc;
-
-fn diagnostic_from_check(check: &Check) -> lsp_types::Diagnostic {
-    let range = {
-        // diagnostic is zero indexed, but message rows are 1-indexed
-        let row_start = check.location.row() as u32 - 1;
-        let col_start = check.location.column() as u32;
-        let row_end = check.end_location.row() as u32 - 1;
-        let col_end = check.end_location.column() as u32;
-        let start = lsp_types::Position {
-            line: row_start,
-            character: col_start,
-        };
-        let end = lsp_types::Position {
-            line: row_end,
-            character: col_end,
-        };
-        lsp_types::Range { start, end }
-    };
-    let code = Some(lsp_types::NumberOrString::String(
-        check.kind.code().as_ref().to_string(),
-    ));
-    let source = Some(String::from("ruff"));
-    let message = check.kind.body();
-    lsp_types::Diagnostic {
-        range,
-        code,
-        source,
-        message,
-        severity: Some(lsp_types::DiagnosticSeverity::WARNING),
-        code_description: None,
-        tags: None,
-        related_information: None,
-        data: None,
-    }
-}
 
 // TODO move below macros to ruffd_types and export create_locks_fut
 // and unwrap_state_handles
@@ -161,7 +126,7 @@ pub fn run_diagnostic_op(document_uri: lsp_types::Url) -> ServerNotification {
                     if let Some(buffer) = open_buffers.get(&document_uri) {
                         let doc = buffer.iter().collect::<String>();
                         if let Ok(path) = document_uri.to_file_path() {
-                            check(&path, doc.as_str()).unwrap_or_default()
+                            check(&path, doc.as_str(), true).unwrap_or_default()
                         } else {
                             vec![]
                         }
@@ -210,7 +175,7 @@ def bar():
             .unwrap()
             .to_file_path()
             .unwrap();
-        let diagnostics = check(&path, doc)
+        let diagnostics = check(&path, doc, true)
             .unwrap()
             .iter()
             .map(diagnostic_from_check)

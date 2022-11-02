@@ -1,3 +1,4 @@
+use crate::ruff_utils::diagnostic_from_check;
 use ruffd_macros::request;
 use ruffd_types::lsp_types;
 use ruffd_types::{Request, RuntimeError};
@@ -19,15 +20,14 @@ fn doc_code_action(
             .iter_range(start..end)
             .map(|check| {
                 check.fix.as_ref().map(|fix| {
-                    let row_start = fix.patch.location.row() as u32;
-                    let row_end = fix.patch.end_location.row() as u32;
+                    let row_start = fix.patch.location.row() as u32 - 1;
+                    let row_end = fix.patch.end_location.row() as u32 - 1;
                     let col_start = fix.patch.location.column() as u32;
                     let col_end = fix.patch.end_location.column() as u32;
                     lsp_types::CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
                         title: format!("fix {}", check.kind.code().as_ref()),
                         kind: Some(lsp_types::CodeActionKind::QUICKFIX),
-                        // TODO add diagnostic here
-                        diagnostics: None,
+                        diagnostics: Some(vec![diagnostic_from_check(check)]),
                         edit: Some(lsp_types::WorkspaceEdit {
                             changes: Some(HashMap::from_iter(vec![(
                                 uri.clone(),
@@ -51,7 +51,7 @@ fn doc_code_action(
                     })
                 })
             })
-            .filter(Option::is_none)
+            .filter(Option::is_some)
             .flatten()
             .collect::<Vec<_>>();
         Ok(Some(rv))
