@@ -16,7 +16,7 @@ pub use ruff;
 pub use serde;
 pub use serde_json;
 pub use state::{
-    server_state_handles_from_locks, DocumentBuffer, RwGuarded, RwReq, ServerState,
+    server_state_handles_from_locks, CheckRegistry, DocumentBuffer, RwGuarded, RwReq, ServerState,
     ServerStateHandles, ServerStateLocks,
 };
 pub use tokio;
