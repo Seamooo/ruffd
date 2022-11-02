@@ -476,16 +476,12 @@ impl ServerStateFlags {
         let mut rv = Self::default();
         let in_ruffd_types_ident = Ident::new("in_ruffd_types", Span::call_site());
         for arg in args.iter() {
-            match arg {
-                NestedMeta::Meta(Meta::NameValue(name_value)) => {
-                    if name_value.path.is_ident(&in_ruffd_types_ident) {
-                        match &name_value.lit {
-                            Lit::Bool(x) => rv.in_ruffd_types = x.value,
-                            _ => (),
-                        }
+            if let NestedMeta::Meta(Meta::NameValue(name_value)) = arg {
+                if name_value.path.is_ident(&in_ruffd_types_ident) {
+                    if let Lit::Bool(x) = &name_value.lit {
+                        rv.in_ruffd_types = x.value;
                     }
                 }
-                _ => (),
             }
         }
         rv

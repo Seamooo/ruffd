@@ -71,15 +71,15 @@ macro_rules! tup_pat_create_lock {
     };
 }
 
-// clippy will yell for not using ..Default::default()
-// but macro syntax inside the struct initializer is not allowed
+// Clippy will yell for not using ..Default::default() if macro_rules
+// gets linting in its expansion but macro syntax inside the struct
+// initializer is not allowed
 macro_rules! create_locks_fut {
     ($($args:tt),+) => {
         Box::new(|state: Arc<Mutex<ServerState>>| {
             Box::pin(async move {
                 let handle = state.lock().await;
                 $(tup_pat_create_lock!(handle, $args))* ;
-                // ($(tup_pat_name!($args)),* );
                 let mut rv = ServerStateLocks::default();
                 $(tup_pat_setter!(rv, $args))*;
                 rv

@@ -241,11 +241,11 @@ impl<'a> Iterator for CheckRegistryRangeIter<'a> {
                 cmp::Ordering::Less
             };
             let right_test = cmp_location_bound(get_check_end_loc(candidate), self.start_bound);
-            let in_range = match (left_test, right_test) {
-                (cmp::Ordering::Less, cmp::Ordering::Equal) => true,
-                (cmp::Ordering::Less, cmp::Ordering::Greater) => true,
-                _ => false,
-            };
+            let in_range = matches!(
+                (left_test, right_test),
+                (cmp::Ordering::Less, cmp::Ordering::Equal)
+                    | (cmp::Ordering::Less, cmp::Ordering::Greater)
+            );
             if in_range {
                 return Some(candidate);
             }
