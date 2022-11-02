@@ -45,7 +45,7 @@ impl FnDetails {
 
 /// Wraps the TokenStream in parentheses such that a comma separated list of patterns
 /// can be parsed as a tuple pattern
-fn wrap_args(args: TokenStream) -> TokenStream {
+fn wrap_tuple_args(args: TokenStream) -> TokenStream {
     let args = proc_macro2::TokenStream::from(args);
     quote! {(#args)}.into()
 }
@@ -178,7 +178,7 @@ fn make_params_check(param: PatType, is_notification: bool) -> impl ToTokens {
 #[proc_macro_error]
 #[proc_macro_attribute]
 pub fn notification(args: TokenStream, stream: TokenStream) -> TokenStream {
-    let args = wrap_args(args);
+    let args = wrap_tuple_args(args);
     let state_members = make_state_members(parse_macro_input!(args as Pat));
     let create_locks_fn = make_create_locks_fn(&state_members);
     let input = parse_macro_input!(stream as ItemFn);
@@ -233,6 +233,89 @@ pub fn notification(args: TokenStream, stream: TokenStream) -> TokenStream {
 
             #[allow(non_upper_case_globals)]
             pub const #fn_identifier: ::ruffd_types::Notification = ::ruffd_types::Notification {
+                exec,
+                create_locks,
+            };
+        }
+        #[allow(unused_imports)]
+        use #fn_identifier::#fn_identifier;
+    }
+    .into()
+}
+
+/// Macro for constructing a function to add to the request
+/// registry. This constructs a module with the same identifier
+/// as the input function, and exports the internal function with
+/// the modified interface to work with the request registry.
+///
+/// # Arguments
+///
+/// It is possible to add arguments to this attribute that define
+/// locks that will be acquired from `ruffd_types::ServerState`
+/// prior to request execution. These arguments appear as tuple
+/// matching patterns e.g. `#[request(mut open_buffers)]` will acquire
+/// the field `open_buffers` with a write lock prior to execution
+#[proc_macro_error]
+#[proc_macro_attribute]
+pub fn request(args: TokenStream, stream: TokenStream) -> TokenStream {
+    let args = wrap_tuple_args(args);
+    let state_members = make_state_members(parse_macro_input!(args as Pat));
+    let create_locks_fn = make_create_locks_fn(&state_members);
+    let input = parse_macro_input!(stream as ItemFn);
+    let fn_details = FnDetails::from_item_fn(&input);
+    let inner_fn = make_inner_fn(&input, &state_members);
+    let params_check = fn_details
+        .parameter
+        .clone()
+        .map(|x| make_params_check(x, false));
+    let params_ident = if fn_details.parameter.is_some() {
+        quote!(params)
+    } else {
+        quote!(_params)
+    };
+    let inner_call_params = fn_details.parameter.clone().map(|_| quote!(params));
+    let inner_await = fn_details.asyncness.then(|| quote!(.await));
+    let fn_identifier = fn_details.fn_identifier;
+    quote! {
+        #[allow(dead_code)]
+        mod #fn_identifier {
+            use super::*;
+            #inner_fn
+            #create_locks_fn
+            fn exec(
+                state: ::ruffd_types::ServerStateHandles<'_>,
+                scheduler_channel: ::ruffd_types::tokio::sync::mpsc::Sender<
+                    ::ruffd_types::ScheduledTask
+                >,
+                id: ::ruffd_types::lsp_types::NumberOrString,
+                #params_ident: Option<::ruffd_types::serde_json::Value>,
+            ) -> ::std::pin::Pin<
+                Box<
+                    dyn Send + ::std::future::Future<
+                        Output = ::ruffd_types::RpcResponseMessage
+                    > + '_
+                >
+            >
+            {
+                Box::pin(async move {
+                    #params_check
+                    let rv = inner(state, scheduler_channel, #inner_call_params)#inner_await;
+                    match rv {
+                        Ok(val) => ::ruffd_types::RpcResponseMessage::from_result(
+                            id,
+                            val,
+                        ),
+                        Err(e) => ::ruffd_types::RpcResponseMessage::from_error(
+                            Some(id),
+                            ::ruffd_types::RpcError::from(e)
+                        ),
+
+                    }
+                })
+            }
+
+            #[allow(non_upper_case_globals)]
+            pub const #fn_identifier: ::ruffd_types::Request = ::ruffd_types::Request {
                 exec,
                 create_locks,
             };
@@ -393,16 +476,12 @@ impl ServerStateFlags {
         let mut rv = Self::default();
         let in_ruffd_types_ident = Ident::new("in_ruffd_types", Span::call_site());
         for arg in args.iter() {
-            match arg {
-                NestedMeta::Meta(Meta::NameValue(name_value)) => {
-                    if name_value.path.is_ident(&in_ruffd_types_ident) {
-                        match &name_value.lit {
-                            Lit::Bool(x) => rv.in_ruffd_types = x.value,
-                            _ => (),
-                        }
+            if let NestedMeta::Meta(Meta::NameValue(name_value)) = arg {
+                if name_value.path.is_ident(&in_ruffd_types_ident) {
+                    if let Lit::Bool(x) = &name_value.lit {
+                        rv.in_ruffd_types = x.value;
                     }
                 }
-                _ => (),
             }
         }
         rv

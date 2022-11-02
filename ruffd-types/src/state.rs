@@ -1,9 +1,12 @@
 use crate::collections::{AggAvlTree, Rope};
 use crate::error::{DocumentError, RuntimeError};
+use ruff::checks::Check;
 use ruff::settings::configuration::Configuration;
 use ruffd_macros::server_state;
+use std::cmp;
 use std::collections::HashMap;
-use std::ops::RangeBounds;
+use std::iter::FromIterator;
+use std::ops::{Bound, RangeBounds};
 use std::sync::Arc;
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
@@ -159,12 +162,112 @@ impl DocumentBuffer {
     }
 }
 
+// FIXME below handles queries with an exhaustive search
+// an intersection query datastructure would be more appropriate
+pub struct CheckRegistry {
+    checks: Vec<Check>,
+}
+
+impl FromIterator<Check> for CheckRegistry {
+    fn from_iter<T: IntoIterator<Item = Check>>(iter: T) -> Self {
+        let checks = iter.into_iter().collect::<Vec<_>>();
+        Self { checks }
+    }
+}
+
+impl CheckRegistry {
+    /// Constructs an iterator for checks that intersect the given range
+    pub fn iter_range<R: RangeBounds<(usize, usize)>>(
+        &self,
+        range: R,
+    ) -> CheckRegistryRangeIter<'_> {
+        let start_bound = match range.start_bound() {
+            Bound::Included(x) => *x,
+            Bound::Excluded((row, col)) => (*row, col + 1),
+            Bound::Unbounded => (0, 0),
+        };
+        let end_bound = match range.end_bound() {
+            Bound::Included((row, col)) => Some((*row, col + 1)),
+            Bound::Excluded(x) => Some(*x),
+            Bound::Unbounded => None,
+        };
+        CheckRegistryRangeIter {
+            registry: self,
+            start_bound,
+            end_bound,
+            idx: 0,
+        }
+    }
+}
+
+pub struct CheckRegistryRangeIter<'a> {
+    registry: &'a CheckRegistry,
+    // inclusive
+    start_bound: (usize, usize),
+    // exclusive if not None
+    end_bound: Option<(usize, usize)>,
+    idx: usize,
+}
+
+fn cmp_location_bound(lhs: (usize, usize), rhs: (usize, usize)) -> cmp::Ordering {
+    let (lhs_0, lhs_1) = lhs;
+    let (rhs_0, rhs_1) = rhs;
+    match lhs_0.cmp(&rhs_0) {
+        cmp::Ordering::Equal => lhs_1.cmp(&rhs_1),
+        cmp::Ordering::Less => cmp::Ordering::Less,
+        cmp::Ordering::Greater => cmp::Ordering::Greater,
+    }
+}
+
+#[inline(always)]
+fn get_check_start_loc(check: &Check) -> (usize, usize) {
+    (check.location.row(), check.location.column())
+}
+
+#[inline(always)]
+fn get_check_end_loc(check: &Check) -> (usize, usize) {
+    (check.end_location.row(), check.end_location.column())
+}
+
+impl<'a> Iterator for CheckRegistryRangeIter<'a> {
+    type Item = &'a Check;
+    fn next(&mut self) -> Option<Self::Item> {
+        let len = self.registry.checks.len();
+        while self.idx < len {
+            let candidate = &self.registry.checks[self.idx];
+            self.idx += 1;
+            let left_test = if let Some(end_bound) = self.end_bound {
+                cmp_location_bound(get_check_start_loc(candidate), end_bound)
+            } else {
+                cmp::Ordering::Less
+            };
+            let right_test = cmp_location_bound(get_check_end_loc(candidate), self.start_bound);
+            let in_range = matches!(
+                (left_test, right_test),
+                (cmp::Ordering::Less, cmp::Ordering::Equal)
+                    | (cmp::Ordering::Less, cmp::Ordering::Greater)
+            );
+            if in_range {
+                return Some(candidate);
+            }
+        }
+        None
+    }
+}
+
 #[server_state(in_ruffd_types = true)]
 pub struct ServerState {
     pub project_root: Option<lsp_types::Url>,
     pub open_buffers: HashMap<lsp_types::Url, DocumentBuffer>,
     pub capabilities: lsp_types::ServerCapabilities,
     pub settings: Configuration,
+    pub checks: HashMap<lsp_types::Url, CheckRegistry>,
+}
+
+macro_rules! make_rw_send {
+    ($inner:expr) => {
+        ::std::sync::Arc::new(::tokio::sync::RwLock::new($inner))
+    };
 }
 
 impl ServerState {
@@ -185,6 +288,15 @@ impl ServerState {
                     save: None,
                 },
             )),
+            code_action_provider: Some(lsp_types::CodeActionProviderCapability::Options(
+                lsp_types::CodeActionOptions {
+                    code_action_kinds: Some(vec![lsp_types::CodeActionKind::QUICKFIX]),
+                    work_done_progress_options: lsp_types::WorkDoneProgressOptions {
+                        work_done_progress: None,
+                    },
+                    resolve_provider: None,
+                },
+            )),
             ..Default::default()
         };
         let project_root_path = match &project_root_val {
@@ -194,18 +306,17 @@ impl ServerState {
             ),
             None => None,
         };
-        let project_root = Arc::new(RwLock::new(project_root_val));
-        let capabilities = Arc::new(RwLock::new(capabilities_val));
-        let open_buffers = Arc::new(RwLock::new(HashMap::new()));
-        let settings = Arc::new(RwLock::new(Configuration::from_pyproject(
-            &None,
-            &project_root_path,
-        )?));
+        let project_root = make_rw_send!(project_root_val);
+        let capabilities = make_rw_send!(capabilities_val);
+        let open_buffers = make_rw_send!(HashMap::new());
+        let settings = make_rw_send!(Configuration::from_pyproject(&None, &project_root_path,)?);
+        let checks = make_rw_send!(HashMap::new());
         Ok(Self {
             settings,
             project_root,
             capabilities,
             open_buffers,
+            checks,
         })
     }
 }

@@ -1,74 +1,132 @@
+use crate::ruff_utils::diagnostic_from_check;
 use ruffd_types::ruff::check;
-use ruffd_types::ruff::message::Message;
 use ruffd_types::tokio::sync::mpsc::Sender;
 use ruffd_types::tokio::sync::Mutex;
 use ruffd_types::{lsp_types, serde_json};
 use ruffd_types::{
-    CreateLocksFn, RpcNotification, RwGuarded, RwReq, ScheduledTask, ServerNotification,
-    ServerNotificationExec, ServerState, ServerStateHandles, ServerStateLocks,
+    CheckRegistry, CreateLocksFn, RpcNotification, RwGuarded, RwReq, ScheduledTask,
+    ServerNotification, ServerNotificationExec, ServerState, ServerStateHandles, ServerStateLocks,
 };
-use std::path::Path;
 use std::sync::Arc;
 
-// TODO macro the create locks fn
-// TODO macro the unwrapping of state_handles
+// TODO move below macros to ruffd_types and export create_locks_fut
+// and unwrap_state_handles
 
-fn message_into_diagnostic(msg: Message) -> lsp_types::Diagnostic {
-    let range = {
-        // diagnostic is zero indexed, but message rows are 1-indexed
-        let row_start = msg.location.row() as u32 - 1;
-        let col_start = msg.location.column() as u32;
-        let row_end = msg.end_location.row() as u32 - 1;
-        let col_end = msg.end_location.column() as u32;
-        let start = lsp_types::Position {
-            line: row_start,
-            character: col_start,
-        };
-        let end = lsp_types::Position {
-            line: row_end,
-            character: col_end,
-        };
-        lsp_types::Range { start, end }
+macro_rules! tup_pat_setter {
+    ($rv:ident, mut $name:ident, $($tail:tt)*) => {
+        $rv.$name = $name;
+        tup_pat_setter!($rv, $($tail)*);
     };
-    let code = Some(lsp_types::NumberOrString::String(
-        msg.kind.code().as_ref().to_string(),
-    ));
-    let source = Some(String::from("ruff"));
-    let message = msg.kind.body();
-    lsp_types::Diagnostic {
-        range,
-        code,
-        source,
-        message,
-        severity: Some(lsp_types::DiagnosticSeverity::WARNING),
-        code_description: None,
-        tags: None,
-        related_information: None,
-        data: None,
-    }
+    ($rv:ident, $name:ident, $($tail:tt)*) => {
+        $rv.$name = $name;
+        tup_pat_setter!($rv, $($tail)*);
+    };
+    ($rv:ident, mut $name:ident) => {
+        $rv.$name = $name;
+    };
+    ($rv:ident, $name:ident) => {
+        $rv.$name = $name;
+    };
+    ($rv:ident,) => {};
+    ($rv:ident) => {};
 }
 
-fn diagnostics_from_doc(path: &Path, doc: &str) -> Vec<lsp_types::Diagnostic> {
-    check(path, doc)
-        .unwrap_or_default()
-        .into_iter()
-        .map(message_into_diagnostic)
-        .collect()
+macro_rules! create_read_lock {
+    ($handle:ident, $name:ident) => {
+        let $name = Some(RwReq::Read($handle.$name.clone()));
+    };
+}
+
+macro_rules! create_write_lock {
+    ($handle:ident, $name:ident) => {
+        let $name = Some(RwReq::Write($handle.$name.clone()));
+    };
+}
+
+macro_rules! create_locks_statements {
+    ($handle:ident, mut $name:ident, $($tail:tt)*) => {
+        create_write_lock!($handle, $name);
+        create_locks_statements!($handle, $($tail)*);
+    };
+    ($handle:ident, $name:ident, $($tail:tt)*) => {
+        create_read_lock!($handle, $name);
+        create_locks_statements!($handle, $($tail)*);
+    };
+    ($handle:ident, mut $name:ident) => {
+        create_write_lock!($handle, $name);
+    };
+    ($handle:ident, $name:ident) => {
+        create_read_lock!($handle, $name);
+    };
+    ($handle:ident,) => {};
+    ($handle:ident) => {};
+}
+
+// Clippy will yell for not using ..Default::default() if macro_rules!
+// gets linting in its expansion but macro syntax inside the struct
+// initializer is not allowed
+macro_rules! create_locks_fut {
+    ($($args:tt)*) => {
+        Box::new(|state: Arc<Mutex<ServerState>>| {
+            Box::pin(async move {
+                let handle = state.lock().await;
+                create_locks_statements!(handle, $($args)*);
+                let mut rv = ServerStateLocks::default();
+                tup_pat_setter!(rv, $($args)*);
+                rv
+            })
+        })
+    };
+}
+
+macro_rules! unwrap_write_handle {
+    ($handles:ident, $name:ident) => {
+        let mut $name = match $handles.$name.unwrap() {
+            RwGuarded::Write(x) => x,
+            _ => unreachable!(),
+        };
+    };
+}
+
+macro_rules! unwrap_read_handle {
+    ($handles:ident, $name:ident) => {
+        let $name = match $handles.$name.unwrap() {
+            RwGuarded::Read(x) => x,
+            _ => unreachable!(),
+        };
+    };
+}
+
+macro_rules! unwrap_state_handles {
+    ($handles:ident, mut $name:ident, $($tail:tt)*) => {
+        unwrap_write_handle!($handles, $ident);
+        unwrap_state_handles!($handles, $($tail)*);
+    };
+    ($handles:ident, $name:ident, $($tail:tt)*) => {
+        unwrap_read_handle!($handles, $name);
+        unwrap_state_handles!($handles, $($tail)*);
+    };
+    ($handles:ident, mut $name:ident) => {
+        unwrap_write_handle!($handles, $name);
+    };
+    ($handles:ident, $name:ident) => {
+        unwrap_read_handle!($handles, $name);
+    };
+    ($handles:ident,) => {};
+    ($handles:ident) => {};
 }
 
 pub fn run_diagnostic_op(document_uri: lsp_types::Url) -> ServerNotification {
     let exec: ServerNotificationExec = Box::new(
         move |state_handles: ServerStateHandles<'_>, _scheduler_channel: Sender<ScheduledTask>| {
             Box::pin(async move {
-                let open_buffers = match state_handles.open_buffers.unwrap() {
-                    RwGuarded::Read(x) => x,
-                    _ => unreachable!(),
-                };
-                let diagnostics = {
+                unwrap_state_handles!(state_handles, open_buffers, mut checks);
+
+                let check_vec = {
                     if let Some(buffer) = open_buffers.get(&document_uri) {
                         let doc = buffer.iter().collect::<String>();
                         if let Ok(path) = document_uri.to_file_path() {
-                            diagnostics_from_doc(&path, doc.as_str())
+                            check(&path, doc.as_str(), true).unwrap_or_default()
                         } else {
                             vec![]
                         }
@@ -76,6 +134,13 @@ pub fn run_diagnostic_op(document_uri: lsp_types::Url) -> ServerNotification {
                         vec![]
                     }
                 };
+                let diagnostics = check_vec
+                    .iter()
+                    .map(diagnostic_from_check)
+                    .collect::<Vec<_>>();
+                // for now, recreate the registry every op
+                let registry = CheckRegistry::from_iter(check_vec);
+                checks.insert(document_uri.clone(), registry);
                 RpcNotification::new(
                     "textDocument/publishDiagnostics".to_string(),
                     Some(
@@ -91,16 +156,7 @@ pub fn run_diagnostic_op(document_uri: lsp_types::Url) -> ServerNotification {
             })
         },
     );
-    let create_locks: CreateLocksFn = Box::new(|state: Arc<Mutex<ServerState>>| {
-        Box::pin(async move {
-            let handle = state.lock().await;
-            let open_buffers = Some(RwReq::Read(handle.open_buffers.clone()));
-            ServerStateLocks {
-                open_buffers,
-                ..Default::default()
-            }
-        })
-    });
+    let create_locks: CreateLocksFn = create_locks_fut!(open_buffers, mut checks);
     ServerNotification { exec, create_locks }
 }
 
@@ -119,7 +175,11 @@ def bar():
             .unwrap()
             .to_file_path()
             .unwrap();
-        let diagnostics = diagnostics_from_doc(&path, doc);
+        let diagnostics = check(&path, doc, true)
+            .unwrap()
+            .iter()
+            .map(diagnostic_from_check)
+            .collect::<Vec<_>>();
         let expected_range = lsp_types::Range {
             start: lsp_types::Position {
                 line: 2,

@@ -2006,8 +2006,8 @@ dependencies = [
 
 [[package]]
 name = "ruff"
-version = "0.0.92"
-source = "git+https://github.com/charliermarsh/ruff?tag=v0.0.92#138b06c98a7ddfcf5f4c30a79706c5956103fb47"
+version = "0.0.95"
+source = "git+https://github.com/charliermarsh/ruff?rev=f50ff6105637de28f0f51b04c65543c59c90bfaf#f50ff6105637de28f0f51b04c65543c59c90bfaf"
 dependencies = [
  "anyhow",
  "bincode",
