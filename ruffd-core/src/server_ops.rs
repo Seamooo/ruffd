@@ -53,16 +53,67 @@ fn diagnostics_from_doc(path: &Path, doc: &str) -> Vec<lsp_types::Diagnostic> {
         .collect()
 }
 
+macro_rules! tup_pat_setter {
+    ($rv:ident, mut $name:ident) => {
+        $rv.$name = $name;
+    };
+    ($rv:ident, $name:ident) => {
+        $rv.$name = $name;
+    };
+}
+
+macro_rules! tup_pat_create_lock {
+    ($handle:ident, mut $name:ident) => {
+        let $name = Some(RwReq::Write($handle.$name.clone()));
+    };
+    ($handle:ident, $name:ident) => {
+        let $name = Some(RwReq::Read($handle.$name.clone()));
+    };
+}
+
+// clippy will yell for not using ..Default::default()
+// but macro syntax inside the struct initializer is not allowed
+macro_rules! create_locks_fut {
+    ($($args:tt),+) => {
+        Box::new(|state: Arc<Mutex<ServerState>>| {
+            Box::pin(async move {
+                let handle = state.lock().await;
+                $(tup_pat_create_lock!(handle, $args))* ;
+                // ($(tup_pat_name!($args)),* );
+                let mut rv = ServerStateLocks::default();
+                $(tup_pat_setter!(rv, $args))*;
+                rv
+            })
+        })
+    };
+}
+
+macro_rules! tup_pat_unwrap_state_handles {
+    ($handle:ident, mut $name:ident) => {
+        let mut $name = match $handle.$name.unwrap() {
+            RwGuarded::Write(x) => x,
+            _ => unreachable!(),
+        };
+    };
+    ($handle:ident, $name: ident) => {
+        let $name = match $handle.$name.unwrap() {
+            RwGuarded::Read(x) => x,
+            _ => unreachable!(),
+        };
+    };
+}
+
+macro_rules! unwrap_state_handles {
+    ($handles:ident, $($args:tt),+) => {
+        $(tup_pat_unwrap_state_handles!($handles, $args))*
+    }
+}
+
 pub fn run_diagnostic_op(document_uri: lsp_types::Url) -> ServerNotification {
-    // TODO macro the create locks fn
-    // TODO macro the unwrapping of state_handles
     let exec: ServerNotificationExec = Box::new(
         move |state_handles: ServerStateHandles<'_>, _scheduler_channel: Sender<ScheduledTask>| {
             Box::pin(async move {
-                let open_buffers = match state_handles.open_buffers.unwrap() {
-                    RwGuarded::Read(x) => x,
-                    _ => unreachable!(),
-                };
+                unwrap_state_handles!(state_handles, open_buffers);
                 let diagnostics = {
                     if let Some(buffer) = open_buffers.get(&document_uri) {
                         let doc = buffer.iter().collect::<String>();
@@ -90,16 +141,7 @@ pub fn run_diagnostic_op(document_uri: lsp_types::Url) -> ServerNotification {
             })
         },
     );
-    let create_locks: CreateLocksFn = Box::new(|state: Arc<Mutex<ServerState>>| {
-        Box::pin(async move {
-            let handle = state.lock().await;
-            let open_buffers = Some(RwReq::Read(handle.open_buffers.clone()));
-            ServerStateLocks {
-                open_buffers,
-                ..Default::default()
-            }
-        })
-    });
+    let create_locks: CreateLocksFn = create_locks_fut!(open_buffers);
     ServerNotification { exec, create_locks }
 }
 
