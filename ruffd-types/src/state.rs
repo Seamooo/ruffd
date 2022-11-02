@@ -235,6 +235,7 @@ impl<'a> Iterator for CheckRegistryRangeIter<'a> {
         let len = self.registry.checks.len();
         while self.idx < len {
             let candidate = &self.registry.checks[self.idx];
+            self.idx += 1;
             let left_test = if let Some(end_bound) = self.end_bound {
                 cmp_location_bound(get_check_start_loc(candidate), end_bound)
             } else {
@@ -249,7 +250,6 @@ impl<'a> Iterator for CheckRegistryRangeIter<'a> {
             if in_range {
                 return Some(candidate);
             }
-            self.idx += 1;
         }
         None
     }
