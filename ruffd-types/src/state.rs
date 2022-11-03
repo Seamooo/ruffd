@@ -340,6 +340,151 @@ impl<T> RwReq<T> {
     }
 }
 
+#[doc(hidden)]
+#[macro_export]
+macro_rules! tup_pat_setter {
+    ($rv:ident, mut $name:ident, $($tail:tt)*) => {
+        $rv.$name = $name;
+        $crate::tup_pat_setter!($rv, $($tail)*);
+    };
+    ($rv:ident, $name:ident, $($tail:tt)*) => {
+        $rv.$name = $name;
+        $crate::tup_pat_setter!($rv, $($tail)*);
+    };
+    ($rv:ident, mut $name:ident) => {
+        $rv.$name = $name;
+    };
+    ($rv:ident, $name:ident) => {
+        $rv.$name = $name;
+    };
+    ($rv:ident,) => {};
+    ($rv:ident) => {};
+}
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! create_read_lock {
+    ($handle:ident, $name:ident) => {
+        let $name = Some($crate::RwReq::Read($handle.$name.clone()));
+    };
+}
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! create_write_lock {
+    ($handle:ident, $name:ident) => {
+        let $name = Some($crate::RwReq::Write($handle.$name.clone()));
+    };
+}
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! create_locks_statements {
+    ($handle:ident, mut $name:ident, $($tail:tt)*) => {
+        $crate::create_write_lock!($handle, $name);
+        $crate::create_locks_statements!($handle, $($tail)*);
+    };
+    ($handle:ident, $name:ident, $($tail:tt)*) => {
+        $crate::create_read_lock!($handle, $name);
+        $crate::create_locks_statements!($handle, $($tail)*);
+    };
+    ($handle:ident, mut $name:ident) => {
+        $crate::create_write_lock!($handle, $name);
+    };
+    ($handle:ident, $name:ident) => {
+        $crate::create_read_lock!($handle, $name);
+    };
+    ($handle:ident,) => {};
+    ($handle:ident) => {};
+}
+
+/// Takes a comma seperated list of field names with an optional
+/// `mut` prefix.
+/// This is converted into a callable `CreateLocksFn` populating the
+/// return value with the fields and corresponding r/w mode as specified
+/// by the field name and `mut` prefix
+///
+/// # Example
+///
+/// ```
+/// use ruffd_types::{create_locks_fut, CreateLocksFn};
+/// let locks_fn: CreateLocksFn = create_locks_fut!(mut open_buffers, checks);
+/// ```
+// Clippy will yell for not using ..Default::default() if macro_rules!
+// gets linting in its expansion but macro syntax inside the struct
+// initializer is not allowed
+#[macro_export]
+macro_rules! create_locks_fut {
+    ($($args:tt)*) => {
+        Box::new(|state: ::std::sync::Arc<$crate::tokio::sync::Mutex<$crate::ServerState>>| {
+            Box::pin(async move {
+                let handle = state.lock().await;
+                $crate::create_locks_statements!(handle, $($args)*);
+                let mut rv = $crate::ServerStateLocks::default();
+                $crate::tup_pat_setter!(rv, $($args)*);
+                rv
+            })
+        })
+    };
+}
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! unwrap_write_handle {
+    ($handles:ident, $name:ident) => {
+        let mut $name = match $handles.$name.unwrap() {
+            $crate::RwGuarded::Write(x) => x,
+            _ => unreachable!(),
+        };
+    };
+}
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! unwrap_read_handle {
+    ($handles:ident, $name:ident) => {
+        let $name = match $handles.$name.unwrap() {
+            $crate::RwGuarded::Read(x) => x,
+            _ => unreachable!(),
+        };
+    };
+}
+
+/// Takes a variable name of a `ServerStateHandles` struct, and a comma
+/// seperated list of field names with an optional
+/// `mut` prefix. This is converted into a number of assignments
+/// that destructure the handles into mutable or immutable variables
+/// corresponding to the field name and `mut` prefix for each comma
+/// seperated pattern
+///
+/// # Example
+///
+/// ```
+/// use ruffd_types::{ServerStateHandles, unwrap_state_handles};
+/// fn exec_on_state(handles: ServerStateHandles<'_>) {
+///     unwrap_state_handles!(handles, mut checks, open_buffers);
+/// }
+/// ```
+#[macro_export]
+macro_rules! unwrap_state_handles {
+    ($handles:ident, mut $name:ident, $($tail:tt)*) => {
+        $crate::unwrap_write_handle!($handles, $name);
+        $crate::unwrap_state_handles!($handles, $($tail)*);
+    };
+    ($handles:ident, $name:ident, $($tail:tt)*) => {
+        $crate::unwrap_read_handle!($handles, $name);
+        $crate::unwrap_state_handles!($handles, $($tail)*);
+    };
+    ($handles:ident, mut $name:ident) => {
+        $crate::unwrap_write_handle!($handles, $name);
+    };
+    ($handles:ident, $name:ident) => {
+        $crate::unwrap_read_handle!($handles, $name);
+    };
+    ($handles:ident,) => {};
+    ($handles:ident) => {};
+}
+
 #[cfg(test)]
 mod test {
     use super::*;

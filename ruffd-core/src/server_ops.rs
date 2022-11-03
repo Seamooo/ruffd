@@ -1,120 +1,12 @@
 use crate::ruff_utils::diagnostic_from_check;
 use ruffd_types::ruff::check;
 use ruffd_types::tokio::sync::mpsc::Sender;
-use ruffd_types::tokio::sync::Mutex;
+use ruffd_types::{create_locks_fut, unwrap_state_handles};
 use ruffd_types::{lsp_types, serde_json};
 use ruffd_types::{
-    CheckRegistry, CreateLocksFn, RpcNotification, RwGuarded, RwReq, ScheduledTask,
-    ServerNotification, ServerNotificationExec, ServerState, ServerStateHandles, ServerStateLocks,
+    CheckRegistry, CreateLocksFn, RpcNotification, ScheduledTask, ServerNotification,
+    ServerNotificationExec, ServerStateHandles,
 };
-use std::sync::Arc;
-
-// TODO move below macros to ruffd_types and export create_locks_fut
-// and unwrap_state_handles
-
-macro_rules! tup_pat_setter {
-    ($rv:ident, mut $name:ident, $($tail:tt)*) => {
-        $rv.$name = $name;
-        tup_pat_setter!($rv, $($tail)*);
-    };
-    ($rv:ident, $name:ident, $($tail:tt)*) => {
-        $rv.$name = $name;
-        tup_pat_setter!($rv, $($tail)*);
-    };
-    ($rv:ident, mut $name:ident) => {
-        $rv.$name = $name;
-    };
-    ($rv:ident, $name:ident) => {
-        $rv.$name = $name;
-    };
-    ($rv:ident,) => {};
-    ($rv:ident) => {};
-}
-
-macro_rules! create_read_lock {
-    ($handle:ident, $name:ident) => {
-        let $name = Some(RwReq::Read($handle.$name.clone()));
-    };
-}
-
-macro_rules! create_write_lock {
-    ($handle:ident, $name:ident) => {
-        let $name = Some(RwReq::Write($handle.$name.clone()));
-    };
-}
-
-macro_rules! create_locks_statements {
-    ($handle:ident, mut $name:ident, $($tail:tt)*) => {
-        create_write_lock!($handle, $name);
-        create_locks_statements!($handle, $($tail)*);
-    };
-    ($handle:ident, $name:ident, $($tail:tt)*) => {
-        create_read_lock!($handle, $name);
-        create_locks_statements!($handle, $($tail)*);
-    };
-    ($handle:ident, mut $name:ident) => {
-        create_write_lock!($handle, $name);
-    };
-    ($handle:ident, $name:ident) => {
-        create_read_lock!($handle, $name);
-    };
-    ($handle:ident,) => {};
-    ($handle:ident) => {};
-}
-
-// Clippy will yell for not using ..Default::default() if macro_rules!
-// gets linting in its expansion but macro syntax inside the struct
-// initializer is not allowed
-macro_rules! create_locks_fut {
-    ($($args:tt)*) => {
-        Box::new(|state: Arc<Mutex<ServerState>>| {
-            Box::pin(async move {
-                let handle = state.lock().await;
-                create_locks_statements!(handle, $($args)*);
-                let mut rv = ServerStateLocks::default();
-                tup_pat_setter!(rv, $($args)*);
-                rv
-            })
-        })
-    };
-}
-
-macro_rules! unwrap_write_handle {
-    ($handles:ident, $name:ident) => {
-        let mut $name = match $handles.$name.unwrap() {
-            RwGuarded::Write(x) => x,
-            _ => unreachable!(),
-        };
-    };
-}
-
-macro_rules! unwrap_read_handle {
-    ($handles:ident, $name:ident) => {
-        let $name = match $handles.$name.unwrap() {
-            RwGuarded::Read(x) => x,
-            _ => unreachable!(),
-        };
-    };
-}
-
-macro_rules! unwrap_state_handles {
-    ($handles:ident, mut $name:ident, $($tail:tt)*) => {
-        unwrap_write_handle!($handles, $ident);
-        unwrap_state_handles!($handles, $($tail)*);
-    };
-    ($handles:ident, $name:ident, $($tail:tt)*) => {
-        unwrap_read_handle!($handles, $name);
-        unwrap_state_handles!($handles, $($tail)*);
-    };
-    ($handles:ident, mut $name:ident) => {
-        unwrap_write_handle!($handles, $name);
-    };
-    ($handles:ident, $name:ident) => {
-        unwrap_read_handle!($handles, $name);
-    };
-    ($handles:ident,) => {};
-    ($handles:ident) => {};
-}
 
 pub fn run_diagnostic_op(document_uri: lsp_types::Url) -> ServerNotification {
     let exec: ServerNotificationExec = Box::new(

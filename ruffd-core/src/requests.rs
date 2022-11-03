@@ -1,4 +1,4 @@
-use crate::ruff_utils::diagnostic_from_check;
+use crate::ruff_utils::action_from_check;
 use ruffd_macros::request;
 use ruffd_types::lsp_types;
 use ruffd_types::{Request, RuntimeError};
@@ -18,41 +18,10 @@ fn doc_code_action(
         let end = (end_line, end_col);
         let rv = registry
             .iter_range(start..end)
-            .map(|check| {
-                check.fix.as_ref().map(|fix| {
-                    let row_start = fix.patch.location.row() as u32 - 1;
-                    let row_end = fix.patch.end_location.row() as u32 - 1;
-                    let col_start = fix.patch.location.column() as u32;
-                    let col_end = fix.patch.end_location.column() as u32;
-                    lsp_types::CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
-                        title: format!("fix {}", check.kind.code().as_ref()),
-                        kind: Some(lsp_types::CodeActionKind::QUICKFIX),
-                        diagnostics: Some(vec![diagnostic_from_check(check)]),
-                        edit: Some(lsp_types::WorkspaceEdit {
-                            changes: Some(HashMap::from_iter(vec![(
-                                uri.clone(),
-                                vec![lsp_types::TextEdit {
-                                    range: lsp_types::Range {
-                                        start: lsp_types::Position {
-                                            line: row_start,
-                                            character: col_start,
-                                        },
-                                        end: lsp_types::Position {
-                                            line: row_end,
-                                            character: col_end,
-                                        },
-                                    },
-                                    new_text: fix.patch.content.clone(),
-                                }],
-                            )])),
-                            ..Default::default()
-                        }),
-                        ..Default::default()
-                    })
-                })
-            })
+            .map(|check| action_from_check(check, &uri))
             .filter(Option::is_some)
             .flatten()
+            .map(lsp_types::CodeActionOrCommand::CodeAction)
             .collect::<Vec<_>>();
         Ok(Some(rv))
     } else {
