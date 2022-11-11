@@ -12,9 +12,9 @@ struct PipeArg {
 
 // Below is opinionated (not based on the specification)
 // prioritise named argument if present
-impl Into<String> for PipeArg {
-    fn into(self) -> String {
-        match (self.pos_pipe, self.named_pipe) {
+impl From<PipeArg> for String {
+    fn from(arg: PipeArg) -> Self {
+        match (arg.pos_pipe, arg.named_pipe) {
             (None, Some(pipe)) => pipe,
             (Some(pipe), None) => pipe,
             (Some(_), Some(named)) => named,
@@ -33,9 +33,9 @@ struct PortArg {
 
 // Below is opinionated (not based on the specification)
 // prioritise named argument if present
-impl Into<u64> for PortArg {
-    fn into(self) -> u64 {
-        match (self.pos_port, self.named_port) {
+impl From<PortArg> for u64 {
+    fn from(arg: PortArg) -> Self {
+        match (arg.pos_port, arg.named_port) {
             (None, Some(port)) => port,
             (Some(port), None) => port,
             (Some(_), Some(named)) => named,
