@@ -1,0 +1,120 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  FETCH_DEPTH: 0
+
+jobs:
+  dist:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            binary-name: ruffd.exe
+          - os: windows-latest
+            target: aarch64-pc-windows-msvc
+            binary-name: ruffd.exe
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            binary-name: ruffd
+          - os: ubuntu-22.04
+            target: aarch64-unknown-linux-gnu
+            binary-name: ruffd
+          - os: ubuntu-22.04
+            target: arm-unknown-linux-gnueabihf
+            binary-name: ruffd
+          - os: macos-11
+            target: x86_64-apple-darwin
+            binary-name: ruffd
+          - os: macos-11
+            target: aarch64-apple-darwin
+            binary-name: ruffd
+
+    name: dist (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container }}
+    env:
+      ARCHIVE_PATH: ruffd-${{ matrix.target }}.zip
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: ${{ env.FETCH_DEPTH }}
+      - name: Install latest stable rust for ${{ matrix.target }}
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          target: ${{ matrix.target }}
+      - name: Build ruffd ${{ matrix.target }} release
+        run: cargo build --release
+
+      - name: Zip binary powershell
+        if: startsWith(matrix.os, 'windows')
+        run: compress-archive ./target/release/${{ matrix.binary-name }} ${{ env.ARCHIVE_PATH }}
+
+      - name: Zip binary ubuntu
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+          sudo apt install -y zip
+          zip ${{ env.ARCHIVE_PATH }} ./target/release/${{ matrix.binary-name }}
+
+      - name: Zip binary macos
+        if: startsWith(matrix.os, 'macos')
+        run: zip ${{ env.ARCHIVE_PATH }} ./target/release/${{ matrix.binary-name }}
+
+      - name: Upload zip 
+        uses: actions/upload-artifact@v1
+        with:
+          name: ruffd-${{ matrix.target }}
+          path: ${{ env.ARCHIVE_PATH }}
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    needs: ["dist"]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: ${{ env.FETCH_DEPTH }}
+      # Download all built artifacts.
+      - uses: actions/download-artifact@v1
+        with:
+          name: ruffd-aarch64-apple-darwin
+          path: dist
+      - uses: actions/download-artifact@v1
+        with:
+          name: ruffd-x86_64-apple-darwin
+          path: dist
+      - uses: actions/download-artifact@v1
+        with:
+          name: ruffd-x86_64-unknown-linux-gnu
+          path: dist
+      - uses: actions/download-artifact@v1
+        with:
+          name: ruffd-aarch64-unknown-linux-gnu
+          path: dist
+      - uses: actions/download-artifact@v1
+        with:
+          name: ruffd-arm-unknown-linux-gnueabihf
+          path: dist
+      - uses: actions/download-artifact@v1
+        with:
+          name: ruffd-x86_64-pc-windows-msvc
+          path: dist
+      - uses: actions/download-artifact@v1
+        with:
+          name: ruffd-aarch64-pc-windows-msvc
+          path: dist
+      - run: ls -al ./dist
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: dist/*
+          generate_release_notes: true
