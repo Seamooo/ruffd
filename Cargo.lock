@@ -2049,6 +2049,7 @@ dependencies = [
 name = "ruffd"
 version = "0.0.1"
 dependencies = [
+ "clap",
  "ruffd-core",
  "ruffd-types",
 ]

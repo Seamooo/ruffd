@@ -3,8 +3,7 @@ name = "ruffd"
 version = "0.0.1"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 ruffd-core = { path="../ruffd-core" }
 ruffd-types = { path="../ruffd-types" }
+clap = "4.0"
