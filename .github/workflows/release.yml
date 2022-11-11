@@ -56,17 +56,17 @@ jobs:
         run: cargo build --release
 
       - name: Zip binary powershell
-        if: startsWith(${{ matrix.os }}, "windows")
+        if: startsWith(matrix.os, 'windows')
         run: compress-archive ./target/release/${{ matrix.binary-name }} ${{ env.ARCHIVE_PATH }}
 
       - name: Zip binary ubuntu
-        if: startsWith(${{ matrix.os }}, "ubuntu")
+        if: startsWith(matrix.os, 'ubuntu')
         run: |
           sudo apt install -y zip
           zip ${{ env.ARCHIVE_PATH }} ./target/release/${{ matrix.binary-name }}
 
       - name: Zip binary macos
-        if: startsWith(${{ matrix.os }}, "macos")
+        if: startsWith(matrix.os, 'macos')
         run: zip ${{ env.ARCHIVE_PATH }} ./target/release/${{ matrix.binary-name }}
 
       - name: Upload zip 
