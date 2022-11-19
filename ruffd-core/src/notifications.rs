@@ -41,6 +41,17 @@ fn document_did_change(
             buffer.delete_range(start, end)?;
             buffer.insert_text(change.text.as_str(), start)?;
         }
+        let uri = doc_info.text_document.uri;
+        task::spawn(async move {
+            let diagnostic_op = run_diagnostic_op(uri);
+            _scheduler_channel
+                .send(ScheduledTask::Server(ServerInitiated::Notification(
+                    diagnostic_op,
+                )))
+                .await
+                .ok()
+                .unwrap();
+        });
         Ok(())
     } else {
         Err(RuntimeError::EditUnopenedDocument(
